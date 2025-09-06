@@ -3,7 +3,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge"
 import { Shield, FileText, Scale, DollarSign, Users, Lock } from "lucide-react"
 import Link from "next/link"
-import { HederaWalletConnectButton } from "@/components/wallet/hedera-wallet-connect-button"
+import { WalletStatus } from "@/components/wallet/wallet-status"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LandingPage() {
@@ -38,7 +38,7 @@ export default function LandingPage() {
             {/* Right side: Wallet + Toggle + Dashboard */}
             <div className="flex items-center space-x-4">
               <ThemeToggle /> {}
-              <HederaWalletConnectButton />
+              <WalletStatus />
               <Button asChild>
                 <Link href="/dashboard">Dashboard</Link>
               </Button>

@@ -1,11 +1,11 @@
-import { WalletGuard } from "@/components/wallet/wallet-guard"
+import { AuthGuard } from "@/components/wallet/auth-guard"
 import { DisputeManagement } from "@/components/disputes/dispute-management"
 import { Badge } from "@/components/ui/badge"
 import { Shield } from "lucide-react"
 
 export default function DisputesPage() {
   return (
-    <WalletGuard>
+    <AuthGuard>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
@@ -25,6 +25,6 @@ export default function DisputesPage() {
 
         <DisputeManagement />
       </div>
-    </WalletGuard>
+    </AuthGuard>
   )
 }

@@ -1,4 +1,4 @@
-import { HederaWalletGuard } from "@/components/wallet/hedera-wallet-guard"
+import { AuthGuard } from "@/components/wallet/auth-guard"
 import { IPRegistrationForm } from "@/components/ip/ip-registration-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -6,7 +6,7 @@ import { FileText, Shield, Clock, CheckCircle } from "lucide-react"
 
 export default function RegisterIPPage() {
   return (
-    <HederaWalletGuard>
+    <AuthGuard>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
@@ -104,6 +104,6 @@ export default function RegisterIPPage() {
           </div>
         </div>
       </div>
-    </HederaWalletGuard>
+    </AuthGuard>
   )
 }

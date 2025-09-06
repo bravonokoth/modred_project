@@ -21,11 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Wallet, Download, CheckCircle, AlertCircle, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
-import { multiChainService, SupportedChain } from "@/lib/blockchain/multi-chain";
-import { HashConnectConnectionState } from "hashconnect";
-import { ethers } from "ethers";
-import { PublicKey } from "@solana/web3.js";
-import nacl from "tweetnacl";
 
 const wallets = [
   {
@@ -56,15 +51,6 @@ const wallets = [
     installed: typeof window !== "undefined" && !!(window as any).solana?.isPhantom,
   },
   {
-    id: "walletconnect",
-    name: "WalletConnect",
-    chain: "walletconnect",
-    icon: "🔗",
-    description: "Connect any wallet",
-    downloadUrl: "https://walletconnect.com/",
-    installed: true,
-  },
-  {
     id: "dummy",
     name: "Dummy Login",
     chain: "dummy",
@@ -75,15 +61,14 @@ const wallets = [
   },
 ];
 
-export default function MultiWalletConnectButtonClient() {
+export function MultiWalletConnectButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
   const [dummyEmail, setDummyEmail] = useState("");
   const [showDummyForm, setShowDummyForm] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { accountId, isConnected, state, isInitialized, error, connect: connectHedera } =
-    useHederaWallet();
+  const { accountId, isConnected, isInitialized, connect: connectHedera } = useHederaWallet();
 
   const handleConnect = async (wallet: any) => {
     setConnectingWallet(wallet.id);
@@ -96,9 +81,7 @@ export default function MultiWalletConnectButtonClient() {
 
     try {
       let address: string | null = null;
-      let signature: string | null = null;
-      const message = `Sign in to Modred at ${new Date().toISOString()}`;
-      const chain = wallet.chain as SupportedChain;
+      let chain = wallet.chain;
 
       if (wallet.id === "hashpack") {
         if (!isInitialized) {
@@ -111,40 +94,34 @@ export default function MultiWalletConnectButtonClient() {
           throw new Error("No Hedera account connected");
         }
         address = accountId;
-        signature = await multiChainService.signMessage(chain, message, address);
-      } else {
-        address = await multiChainService.connect(chain);
-        signature = await multiChainService.signMessage(chain, message, address);
+      } else if (wallet.id === "metamask") {
+        if (!(window as any).ethereum?.isMetaMask) {
+          throw new Error("MetaMask not installed");
+        }
+        const accounts = await (window as any).ethereum.request({
+          method: "eth_requestAccounts",
+        });
+        address = accounts[0];
+      } else if (wallet.id === "phantom") {
+        if (!(window as any).solana?.isPhantom) {
+          throw new Error("Phantom not installed");
+        }
+        const response = await (window as any).solana.connect();
+        address = response.publicKey.toString();
       }
 
-      // ✅ Verify signature
-      let isValid = false;
-      if (chain === "dummy") {
-        isValid = true;
-      } else if (chain === "ethereum" || chain === "walletconnect") {
-        const recoveredAddress = ethers.verifyMessage(message, signature);
-        isValid = recoveredAddress.toLowerCase() === address.toLowerCase();
-      } else if (chain === "solana") {
-        const publicKey = new PublicKey(address);
-        const encodedMessage = new TextEncoder().encode(message);
-        const signatureBytes = Buffer.from(signature, "hex");
-        isValid = nacl.sign.detached.verify(encodedMessage, signatureBytes, publicKey.toBuffer());
-      } else if (chain === "hedera") {
-        isValid = true; // TODO: add Hedera pubkey verification
+      if (!address) {
+        throw new Error("Failed to get wallet address");
       }
 
-      if (!isValid) {
-        throw new Error("Invalid signature");
-      }
-
-      // ✅ Store auth
+      // Store auth
       localStorage.setItem("authToken", JSON.stringify({ address, chain }));
       document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
       localStorage.setItem("walletAddress", address);
 
       toast({
         title: "Wallet Connected",
-        description: `Successfully connected to ${wallet.name} (${address})`,
+        description: `Successfully connected to ${wallet.name}`,
       });
 
       setIsOpen(false);
@@ -165,10 +142,12 @@ export default function MultiWalletConnectButtonClient() {
     setConnectingWallet("dummy");
 
     try {
-      const chain: SupportedChain = "dummy";
-      const address = await multiChainService.connect(chain, dummyEmail);
-      const message = `Sign in to Modred at ${new Date().toISOString()}`;
-      const signature = await multiChainService.signMessage(chain, message, address);
+      if (!dummyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dummyEmail)) {
+        throw new Error("Please enter a valid email address");
+      }
+
+      const chain = "dummy";
+      const address = dummyEmail;
 
       localStorage.setItem("authToken", JSON.stringify({ address, chain }));
       document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
@@ -197,7 +176,6 @@ export default function MultiWalletConnectButtonClient() {
   const getChainColor = (chain: string) => {
     switch (chain) {
       case "ethereum":
-      case "walletconnect":
         return "bg-blue-500";
       case "hedera":
         return "bg-purple-500";
@@ -253,6 +231,7 @@ export default function MultiWalletConnectButtonClient() {
               {connectingWallet === "dummy" ? "Logging in..." : "Login with Email"}
             </Button>
             <Button
+              type="button"
               variant="outline"
               className="w-full"
               onClick={() => setShowDummyForm(false)}
@@ -289,23 +268,17 @@ export default function MultiWalletConnectButtonClient() {
                       {wallet.installed ? (
                         <Button
                           onClick={() => handleConnect(wallet)}
-                          disabled={
-                            connectingWallet === wallet.id ||
-                            (wallet.id === "hashpack" &&
-                              state === HashConnectConnectionState.Connecting)
-                          }
+                          disabled={connectingWallet === wallet.id}
                           size="sm"
                         >
-                          {connectingWallet === wallet.id ||
-                          (wallet.id === "hashpack" &&
-                            state === HashConnectConnectionState.Connecting)
-                            ? "Connecting..."
-                            : (
-                              <>
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Connect
-                              </>
-                            )}
+                          {connectingWallet === wallet.id ? (
+                            "Connecting..."
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Connect
+                            </>
+                          )}
                         </Button>
                       ) : (
                         <div className="flex items-center space-x-2">
@@ -328,10 +301,6 @@ export default function MultiWalletConnectButtonClient() {
               </Card>
             ))}
           </div>
-        )}
-
-        {error && (
-          <p className="text-sm text-red-600 max-w-xs text-center mt-2">{error}</p>
         )}
 
         <div className="mt-4 p-3 bg-muted/50 rounded-lg">

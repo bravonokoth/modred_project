@@ -1,11 +1,11 @@
-import { WalletGuard } from "@/components/wallet/wallet-guard"
+import { AuthGuard } from "@/components/wallet/auth-guard"
 import { LicensingMarketplace } from "@/components/licensing/licensing-marketplace"
 import { Badge } from "@/components/ui/badge"
 import { Scale } from "lucide-react"
 
 export default function LicensingPage() {
   return (
-    <WalletGuard>
+    <AuthGuard>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
@@ -25,6 +25,6 @@ export default function LicensingPage() {
 
         <LicensingMarketplace />
       </div>
-    </WalletGuard>
+    </AuthGuard>
   )
 }

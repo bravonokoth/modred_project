@@ -1,11 +1,11 @@
-import { WalletGuard } from "@/components/wallet/wallet-guard"
+import { AuthGuard } from "@/components/wallet/auth-guard"
 import { RoyaltiesDashboard } from "@/components/royalties/royalties-dashboard"
 import { Badge } from "@/components/ui/badge"
 import { DollarSign } from "lucide-react"
 
 export default function RoyaltiesPage() {
   return (
-    <WalletGuard>
+    <AuthGuard>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
@@ -25,6 +25,6 @@ export default function RoyaltiesPage() {
 
         <RoyaltiesDashboard />
       </div>
-    </WalletGuard>
+    </AuthGuard>
   )
 }

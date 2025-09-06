@@ -1,9 +1,5 @@
 // lib/blockchain/multi-chain.ts
-"use client";
 
-import { EthereumService } from "./ethereum/ethereum-service";
-import { SolanaService } from "./solana/solana-service";
-import { WalletConnectService } from "./walletconnect/walletconnect-service";
 
 export type SupportedChain = "hedera" | "ethereum" | "solana" | "walletconnect" | "dummy";
 
@@ -95,44 +91,44 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
 };
 
 export class MultiChainService {
-  private hederaService: ChainService | null = null;
-  private ethereumService: EthereumService;
-  private solanaService: SolanaService;
-  private walletConnectService: WalletConnectService;
+  private services: Map<SupportedChain, ChainService> = new Map();
 
   constructor() {
-    console.log("MultiChainService constructor running in browser:", typeof window !== "undefined");
-    this.ethereumService = new EthereumService();
-    this.solanaService = new SolanaService();
-    this.walletConnectService = new WalletConnectService();
+    // Only initialize services on client side
     if (typeof window !== "undefined") {
-      import("./hedera/hedera-service").then(({ HederaService }) => {
-        console.log("HederaService imported");
-        this.hederaService = new HederaService();
-      }).catch((err) => {
-        console.error("Failed to import HederaService:", err);
-      });
+      this.initializeServices();
+    }
+  }
+
+  private async initializeServices() {
+    try {
+      // Dynamically import services to avoid server-side issues
+      const [
+        { EthereumService },
+        { SolanaService },
+        { WalletConnectService },
+        { HederaService }
+      ] = await Promise.all([
+        import("./ethereum/ethereum-service"),
+        import("./solana/solana-service"),
+        import("./walletconnect/walletconnect-service"),
+        import("./hedera/hedera-service")
+      ]);
+
+      this.services.set("ethereum", new EthereumService());
+      this.services.set("solana", new SolanaService());
+      this.services.set("walletconnect", new WalletConnectService());
+      this.services.set("hedera", new HederaService());
+    } catch (error) {
+      console.error("Failed to initialize blockchain services:", error);
     }
   }
 
   getService(chain: SupportedChain): ChainService | null {
-    switch (chain) {
-      case "hedera":
-        if (!this.hederaService) {
-          throw new Error("HederaService not initialized. Ensure client-side execution.");
-        }
-        return this.hederaService;
-      case "ethereum":
-        return this.ethereumService;
-      case "solana":
-        return this.solanaService;
-      case "walletconnect":
-        return this.walletConnectService;
-      case "dummy":
-        return null;
-      default:
-        throw new Error(`Unsupported chain: ${chain}`);
+    if (chain === "dummy") {
+      return null;
     }
+    return this.services.get(chain) || null;
   }
 
   async connect(chain: SupportedChain, email?: string): Promise<string> {
@@ -144,7 +140,10 @@ export class MultiChainService {
     }
     const service = this.getService(chain);
     if (!service) {
-      throw new Error(`No service available for chain: ${chain}`);
+      if (typeof window === "undefined") {
+        throw new Error("Wallet connection only available on client side");
+      }
+      throw new Error(`Service not initialized for chain: ${chain}`);
     }
     return await service.connect();
   }
@@ -155,7 +154,7 @@ export class MultiChainService {
     }
     const service = this.getService(chain);
     if (!service) {
-      throw new Error(`No service available for chain: ${chain}`);
+      throw new Error(`Service not available for chain: ${chain}`);
     }
     return await service.signMessage(message, address);
   }
@@ -173,7 +172,7 @@ export class MultiChainService {
     }
     const service = this.getService(chain);
     if (!service) {
-      throw new Error(`No service available for chain: ${chain}`);
+      throw new Error(`Service not available for chain: ${chain}`);
     }
     return await service.getBalance(address);
   }
@@ -187,7 +186,7 @@ export class MultiChainService {
     }
     const service = this.getService(chain);
     if (!service) {
-      throw new Error(`No service available for chain: ${chain}`);
+      throw new Error(`Service not available for chain: ${chain}`);
     }
     return await service.sendTransaction(transaction);
   }
@@ -203,7 +202,7 @@ export class MultiChainService {
     }
     const service = this.getService(chain);
     if (!service) {
-      throw new Error(`No service available for chain: ${chain}`);
+      throw new Error(`Service not available for chain: ${chain}`);
     }
     return await service.mintIPNFT(ipData);
   }
@@ -217,7 +216,7 @@ export class MultiChainService {
     }
     const service = this.getService(chain);
     if (!service) {
-      throw new Error(`No service available for chain: ${chain}`);
+      throw new Error(`Service not available for chain: ${chain}`);
     }
     return await service.transferIPNFT(tokenId, from, to);
   }

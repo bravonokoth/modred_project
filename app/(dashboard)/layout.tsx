@@ -1,6 +1,6 @@
 import type React from "react"
 import { DashboardNav } from "@/components/dashboard/dashboard-nav"
-import { MultiWalletGuard } from "@/components/wallet/multi-wallet-guard"
+import { AuthGuard } from "@/components/wallet/auth-guard"
 
 export default function DashboardLayout({
   children,
@@ -8,13 +8,13 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   return (
-    <MultiWalletGuard>
+    <AuthGuard>
       <div className="min-h-screen bg-background">
         <DashboardNav />
         <main className="flex-1">
           {children}
         </main>
       </div>
-    </MultiWalletGuard>
+    </AuthGuard>
   )
 }

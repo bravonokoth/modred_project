@@ -1,5 +1,4 @@
 // lib/blockchain/ethereum/ethereum-service.ts
-import { ethers } from "ethers";
 
 export class EthereumService {
   private provider: any = null;
@@ -31,6 +30,7 @@ export class EthereumService {
     }
 
     try {
+      const { ethers } = await import("ethers");
       const provider = new ethers.BrowserProvider(this.provider);
       const balance = await provider.getBalance(address);
       const ethBalance = ethers.formatEther(balance);
@@ -99,6 +99,8 @@ export class EthereumService {
     }
 
     try {
+      // Dynamically import ethers to avoid server-side issues
+      const { ethers } = await import("ethers");
       const signature = await this.provider.request({
         method: "personal_sign",
         params: [message, address],

@@ -1,14 +1,16 @@
 // lib/blockchain/solana/solana-service.ts
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 
 export class SolanaService {
   private provider: any = null;
-  private connection: Connection;
+  private connection: any = null;
 
   constructor() {
-    this.connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
     if (typeof window !== "undefined" && (window as any).solana?.isPhantom) {
       this.provider = (window as any).solana;
+      // Initialize connection on client side only
+      import("@solana/web3.js").then(({ Connection }) => {
+        this.connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+      });
     }
   }
 
@@ -26,7 +28,12 @@ export class SolanaService {
   }
 
   async getBalance(address: string) {
+    if (!this.connection) {
+      throw new Error("Solana connection not initialized");
+    }
+
     try {
+      const { PublicKey } = await import("@solana/web3.js");
       const publicKey = new PublicKey(address);
       const balance = await this.connection.getBalance(publicKey);
       const tokenAccounts = await this.connection.getTokenAccountsByOwner(publicKey, {
@@ -60,6 +67,9 @@ export class SolanaService {
 
     try {
       const { signature } = await this.provider.signAndSendTransaction(transaction);
+      if (!this.connection) {
+        throw new Error("Solana connection not initialized");
+      }
       const status = await this.connection.confirmTransaction(signature);
       return {
         signature,
@@ -73,6 +83,7 @@ export class SolanaService {
   async mintIPNFT(ipData: any) {
     // Placeholder; requires Metaplex
     try {
+      const { Transaction } = await import("@solana/web3.js");
       const signature = await this.provider.signAndSendTransaction(new Transaction());
       return {
         mint: `sol_nft_${Math.random().toString(36).substr(2, 9)}`,
@@ -87,6 +98,7 @@ export class SolanaService {
   async transferIPNFT(mint: string, from: string, to: string) {
     // Placeholder; requires token program
     try {
+      const { Transaction } = await import("@solana/web3.js");
       const signature = await this.provider.signAndSendTransaction(new Transaction());
       return {
         signature,

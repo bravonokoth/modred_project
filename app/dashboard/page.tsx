@@ -1,4 +1,4 @@
-import { HederaWalletGuard } from "@/components/wallet/hedera-wallet-guard"
+import { AuthGuard } from "@/components/wallet/auth-guard"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -7,7 +7,7 @@ import Link from "next/link"
 
 export default function DashboardPage() {
   return (
-    <HederaWalletGuard>
+    <AuthGuard>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
@@ -177,6 +177,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </HederaWalletGuard>
+    </AuthGuard>
   )
 }
