@@ -1,11 +1,37 @@
-import { AuthGuard } from "@/components/wallet/auth-guard"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { FileText, Scale, Shield, DollarSign, Plus, TrendingUp } from "lucide-react"
-import Link from "next/link"
+"use client";
+
+import { AuthGuard } from "@/components/wallet/auth-guard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Scale, Shield, DollarSign, Plus, TrendingUp, LogOut, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
+  const router = useRouter();
+
+  // Logout function (customize based on your auth system)
+  const handleLogout = async () => {
+    try {
+      // Example: Disconnect wallet (e.g., MetaMask)
+      if (window.ethereum) {
+        await window.ethereum.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] });
+      }
+      // Clear session data
+      localStorage.removeItem("walletAddress");
+      // Redirect to home or login page
+      router.push("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  // Back button handler (to previous page, likely landing page)
+  const handleBack = () => {
+    router.back();
+  };
+
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background">
@@ -17,12 +43,22 @@ export default function DashboardPage() {
                 <h1 className="font-heading font-bold text-3xl">Dashboard</h1>
                 <p className="text-muted-foreground mt-1">Manage your intellectual property portfolio</p>
               </div>
-              <Button asChild>
-                <Link href="/register-ip">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Register New IP
-                </Link>
-              </Button>
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" onClick={handleBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <Button asChild>
+                  <Link href="/register-ip">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Register New IP
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -178,5 +214,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </AuthGuard>
-  )
+  );
 }
