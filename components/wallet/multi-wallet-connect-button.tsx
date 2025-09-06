@@ -1,0 +1,346 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Wallet, Download, CheckCircle, AlertCircle, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
+import { multiChainService, SupportedChain } from "@/lib/blockchain/multi-chain";
+import { HashConnectConnectionState } from "hashconnect";
+import { ethers } from "ethers";
+import { PublicKey } from "@solana/web3.js";
+import nacl from "tweetnacl";
+
+const wallets = [
+  {
+    id: "metamask",
+    name: "MetaMask",
+    chain: "ethereum",
+    icon: "🦊",
+    description: "Most popular Ethereum wallet",
+    downloadUrl: "https://metamask.io/download/",
+    installed: typeof window !== "undefined" && !!(window as any).ethereum?.isMetaMask,
+  },
+  {
+    id: "hashpack",
+    name: "HashPack",
+    chain: "hedera",
+    icon: "🔷",
+    description: "Official Hedera wallet",
+    downloadUrl: "https://www.hashpack.app/download",
+    installed: true,
+  },
+  {
+    id: "phantom",
+    name: "Phantom",
+    chain: "solana",
+    icon: "👻",
+    description: "Leading Solana wallet",
+    downloadUrl: "https://phantom.app/download",
+    installed: typeof window !== "undefined" && !!(window as any).solana?.isPhantom,
+  },
+  {
+    id: "walletconnect",
+    name: "WalletConnect",
+    chain: "walletconnect",
+    icon: "🔗",
+    description: "Connect any wallet",
+    downloadUrl: "https://walletconnect.com/",
+    installed: true,
+  },
+  {
+    id: "dummy",
+    name: "Dummy Login",
+    chain: "dummy",
+    icon: "🧪",
+    description: "Test login with email",
+    downloadUrl: null,
+    installed: true,
+  },
+];
+
+export default function MultiWalletConnectButtonClient() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
+  const [dummyEmail, setDummyEmail] = useState("");
+  const [showDummyForm, setShowDummyForm] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+  const { accountId, isConnected, state, isInitialized, error, connect: connectHedera } =
+    useHederaWallet();
+
+  const handleConnect = async (wallet: any) => {
+    setConnectingWallet(wallet.id);
+
+    if (wallet.id === "dummy") {
+      setShowDummyForm(true);
+      setConnectingWallet(null);
+      return;
+    }
+
+    try {
+      let address: string | null = null;
+      let signature: string | null = null;
+      const message = `Sign in to Modred at ${new Date().toISOString()}`;
+      const chain = wallet.chain as SupportedChain;
+
+      if (wallet.id === "hashpack") {
+        if (!isInitialized) {
+          throw new Error("Hedera wallet not initialized");
+        }
+        if (!isConnected) {
+          await connectHedera();
+        }
+        if (!accountId) {
+          throw new Error("No Hedera account connected");
+        }
+        address = accountId;
+        signature = await multiChainService.signMessage(chain, message, address);
+      } else {
+        address = await multiChainService.connect(chain);
+        signature = await multiChainService.signMessage(chain, message, address);
+      }
+
+      // ✅ Verify signature
+      let isValid = false;
+      if (chain === "dummy") {
+        isValid = true;
+      } else if (chain === "ethereum" || chain === "walletconnect") {
+        const recoveredAddress = ethers.verifyMessage(message, signature);
+        isValid = recoveredAddress.toLowerCase() === address.toLowerCase();
+      } else if (chain === "solana") {
+        const publicKey = new PublicKey(address);
+        const encodedMessage = new TextEncoder().encode(message);
+        const signatureBytes = Buffer.from(signature, "hex");
+        isValid = nacl.sign.detached.verify(encodedMessage, signatureBytes, publicKey.toBuffer());
+      } else if (chain === "hedera") {
+        isValid = true; // TODO: add Hedera pubkey verification
+      }
+
+      if (!isValid) {
+        throw new Error("Invalid signature");
+      }
+
+      // ✅ Store auth
+      localStorage.setItem("authToken", JSON.stringify({ address, chain }));
+      document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
+      localStorage.setItem("walletAddress", address);
+
+      toast({
+        title: "Wallet Connected",
+        description: `Successfully connected to ${wallet.name} (${address})`,
+      });
+
+      setIsOpen(false);
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast({
+        title: "Connection Failed",
+        description: `Failed to connect to ${wallet.name}: ${err.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingWallet(null);
+    }
+  };
+
+  const handleDummyLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConnectingWallet("dummy");
+
+    try {
+      const chain: SupportedChain = "dummy";
+      const address = await multiChainService.connect(chain, dummyEmail);
+      const message = `Sign in to Modred at ${new Date().toISOString()}`;
+      const signature = await multiChainService.signMessage(chain, message, address);
+
+      localStorage.setItem("authToken", JSON.stringify({ address, chain }));
+      document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
+      localStorage.setItem("walletAddress", address);
+
+      toast({
+        title: "Dummy Login Successful",
+        description: `Logged in with ${address}`,
+      });
+
+      setIsOpen(false);
+      setShowDummyForm(false);
+      setDummyEmail("");
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast({
+        title: "Dummy Login Failed",
+        description: `Failed to login: ${err.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingWallet(null);
+    }
+  };
+
+  const getChainColor = (chain: string) => {
+    switch (chain) {
+      case "ethereum":
+      case "walletconnect":
+        return "bg-blue-500";
+      case "hedera":
+        return "bg-purple-500";
+      case "solana":
+        return "bg-green-500";
+      case "dummy":
+        return "bg-gray-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) setShowDummyForm(false);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button className="w-full">
+          <Wallet className="h-4 w-4 mr-2" />
+          Connect Wallet
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-heading">Connect Your Wallet</DialogTitle>
+          <DialogDescription>
+            Choose a wallet or use email for testing with Dummy Login.
+          </DialogDescription>
+        </DialogHeader>
+
+        {showDummyForm ? (
+          <form onSubmit={handleDummyLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="dummy-email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="dummy-email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={dummyEmail}
+                  onChange={(e) => setDummyEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full" disabled={connectingWallet === "dummy"}>
+              {connectingWallet === "dummy" ? "Logging in..." : "Login with Email"}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowDummyForm(false)}
+            >
+              Back to Wallet Selection
+            </Button>
+          </form>
+        ) : (
+          <div className="grid gap-3 max-h-96 overflow-y-auto">
+            {wallets.map((wallet) => (
+              <Card
+                key={wallet.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="text-2xl">{wallet.icon}</div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{wallet.name}</h3>
+                          <div
+                            className={`w-2 h-2 rounded-full ${getChainColor(wallet.chain)}`}
+                          />
+                          <Badge variant="outline" className="text-xs">
+                            {wallet.chain}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{wallet.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {wallet.installed ? (
+                        <Button
+                          onClick={() => handleConnect(wallet)}
+                          disabled={
+                            connectingWallet === wallet.id ||
+                            (wallet.id === "hashpack" &&
+                              state === HashConnectConnectionState.Connecting)
+                          }
+                          size="sm"
+                        >
+                          {connectingWallet === wallet.id ||
+                          (wallet.id === "hashpack" &&
+                            state === HashConnectConnectionState.Connecting)
+                            ? "Connecting..."
+                            : (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Connect
+                              </>
+                            )}
+                        </Button>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <AlertCircle className="h-4 w-4 text-orange-500" />
+                          <Button variant="outline" size="sm" asChild>
+                            <a
+                              href={wallet.downloadUrl ?? "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Install
+                            </a>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {error && (
+          <p className="text-sm text-red-600 max-w-xs text-center mt-2">{error}</p>
+        )}
+
+        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+          <p className="text-xs text-muted-foreground">
+            <strong>Security Notice:</strong> Only connect wallets from official
+            sources. Modred will never ask for your private keys or seed phrases.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
