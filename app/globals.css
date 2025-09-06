@@ -124,8 +124,13 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--muted);
+  }
+
   body {
-    @apply text-foreground transition-colors duration-300 min-h-screen overflow-hidden relative;
+    @apply text-foreground transition-colors duration-300 min-h-screen relative;
     background: radial-gradient(circle at center, oklch(0.12 0 0) 0%, oklch(0.08 0 0) 100%); /* Dark theme night sky */
   }
 
