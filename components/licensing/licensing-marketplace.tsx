@@ -11,6 +11,8 @@ import { LicenseRequestDialog } from "./license-request-dialog"
 import { MyLicensesTab } from "./my-licenses-tab"
 import { PaymentDialog } from "@/components/wallet/payment-dialog"
 import { Search, SlidersHorizontal } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast";
+
 
 // Mock data for IP assets
 const mockIPAssets = [

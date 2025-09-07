@@ -1,77 +1,86 @@
-"use client"
+// components/wallet/payment-dialog.tsx
+"use client";
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { usePaymentWallet } from "./payment-wallet-provider"
-import { DollarSign, CreditCard, Wallet, Loader2, Plus } from "lucide-react"
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { usePaymentWallet } from "./payment-wallet-provider";
+import { DollarSign, Loader2, Plus } from "lucide-react";
+import { IPAsset } from "@/types"; // Adjust the path to your types file
 
 interface PaymentDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  asset?: {
-    id: string
-    title: string
-    price: string
-    owner: string
-  }
-  onPaymentSuccess?: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  asset: IPAsset | null;
+  onPaymentSuccess?: () => void;
 }
 
 export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: PaymentDialogProps) {
-  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "card">("wallet")
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [showAddFunds, setShowAddFunds] = useState(false)
-  const [addAmount, setAddAmount] = useState("")
-  const { balance, isLoading, processPayment, addFunds } = usePaymentWallet()
+  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "card">("wallet");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showAddFunds, setShowAddFunds] = useState(false);
+  const [addAmount, setAddAmount] = useState("");
+  const { balance, isLoading, processPayment, addFunds } = usePaymentWallet();
 
-  if (!asset) return null
+  // Handle null asset case
+  if (!asset) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">No Asset Selected</DialogTitle>
+            <DialogDescription>Please select an IP asset to proceed with payment.</DialogDescription>
+          </DialogHeader>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
-  const priceAmount = parseFloat(asset.price.replace(/[^\d.]/g, ""))
-  const hasEnoughBalance = balance >= priceAmount
+  const priceAmount = parseFloat(asset.price.replace(/[^\d.]/g, ""));
+  const hasEnoughBalance = balance >= priceAmount;
 
   const handlePayment = async () => {
     if (!hasEnoughBalance) {
-      setShowAddFunds(true)
-      return
+      setShowAddFunds(true);
+      return;
     }
 
-    setIsProcessing(true)
+    setIsProcessing(true);
     try {
-      const success = await processPayment(priceAmount, asset.owner, `License for ${asset.title}`)
+      const success = await processPayment(priceAmount, asset.owner, `License for ${asset.title}`);
       if (success) {
-        onPaymentSuccess?.()
-        onOpenChange(false)
+        onPaymentSuccess?.();
+        onOpenChange(false);
       }
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   const handleAddFunds = async () => {
-    const amount = parseFloat(addAmount)
+    const amount = parseFloat(addAmount);
     if (amount > 0) {
-      const success = await addFunds(amount)
+      const success = await addFunds(amount);
       if (success) {
-        setShowAddFunds(false)
-        setAddAmount("")
+        setShowAddFunds(false);
+        setAddAmount("");
       }
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="font-heading">Complete Payment</DialogTitle>
-          <DialogDescription>
-            Purchase license for "{asset.title}"
-          </DialogDescription>
+          <DialogDescription>Purchase license for "{asset.title}"</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -93,7 +102,7 @@ export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: P
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Wallet className="h-4 w-4" />
+                <DollarSign className="h-4 w-4" />
                 Wallet Balance
               </CardTitle>
             </CardHeader>
@@ -102,7 +111,7 @@ export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: P
                 <span className="text-sm text-muted-foreground">Available:</span>
                 <span className="text-lg font-bold">${balance.toFixed(2)}</span>
               </div>
-              
+
               {!hasEnoughBalance && (
                 <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                   <p className="text-sm text-orange-700 dark:text-orange-300">
@@ -112,9 +121,9 @@ export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: P
               )}
 
               {!showAddFunds ? (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full mt-3"
                   onClick={() => setShowAddFunds(true)}
                 >
@@ -134,17 +143,17 @@ export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: P
                       value={addAmount}
                       onChange={(e) => setAddAmount(e.target.value)}
                     />
-                    <Button 
-                      onClick={handleAddFunds} 
+                    <Button
+                      onClick={handleAddFunds}
                       disabled={isLoading || !addAmount || parseFloat(addAmount) <= 0}
                       size="sm"
                     >
                       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
                     </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setShowAddFunds(false)}
                     className="w-full"
                   >
@@ -159,14 +168,10 @@ export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: P
 
           {/* Payment Actions */}
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handlePayment}
               disabled={!hasEnoughBalance || isProcessing || isLoading}
               className="flex-1"
@@ -187,5 +192,5 @@ export function PaymentDialog({ open, onOpenChange, asset, onPaymentSuccess }: P
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
