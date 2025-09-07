@@ -74,8 +74,12 @@ export const HederaWalletProvider: React.FC<Props> = ({ children }) => {
           if (pairing.accountIds && pairing.accountIds.length > 0) {
             const acct = pairing.accountIds[0];
             setAccountId(acct);
+            const authToken = JSON.stringify({ address: acct, chain: "hedera" });
             localStorage.setItem("hedera_wallet_account", acct);
             localStorage.setItem("hedera_wallet_connected", "true");
+            localStorage.setItem("authToken", authToken);
+            localStorage.setItem("walletAddress", acct);
+            document.cookie = `auth-token=${authToken}; path=/; max-age=86400`;
             setError(null);
             setIsConnecting(false);
             console.log("Navigating to dashboard after successful pairing");
@@ -89,6 +93,9 @@ export const HederaWalletProvider: React.FC<Props> = ({ children }) => {
           setIsConnecting(false);
           localStorage.removeItem("hedera_wallet_account");
           localStorage.removeItem("hedera_wallet_connected");
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("walletAddress");
+          document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         });
 
         hc.connectionStatusChangeEvent.on((connectionStatus: any) => {
@@ -169,6 +176,9 @@ export const HederaWalletProvider: React.FC<Props> = ({ children }) => {
       setIsConnecting(false);
       localStorage.removeItem("hedera_wallet_account");
       localStorage.removeItem("hedera_wallet_connected");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("walletAddress");
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       setError(null);
       console.log("Disconnected successfully");
     } catch (err: any) {
@@ -192,7 +202,7 @@ export const HederaWalletProvider: React.FC<Props> = ({ children }) => {
 
   const contextValue: HederaWalletContextType = {
     accountId,
-    isConnected: !!accountId && state === "Paired", // Adjust based on actual HashConnectConnectionState
+    isConnected: !!accountId,
     state,
     isInitialized,
     error,

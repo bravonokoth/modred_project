@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { WalletConnect } from "./components/WalletConnect"
 import { WalletBalance } from "./components/WalletBalance"
 import { WalletSelector } from "./components/WalletSelector"
+import { WalletConnectionStatus } from "@/components/wallet/wallet-connection-status"
 import { Wallet, Shield, Zap } from "lucide-react"
 
 export default function WalletPage() {
@@ -34,6 +35,7 @@ export default function WalletPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            <WalletConnectionStatus />
             <WalletSelector />
             
             <Card>

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { usePaymentWallet } from "@/components/wallet/payment-wallet-provider"
 import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react"
 
 // Mock balance data
@@ -64,6 +65,7 @@ const mockTransactions = [
 export function WalletBalance() {
   const [selectedChain, setSelectedChain] = useState("ethereum")
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const { balance: hostedBalance } = usePaymentWallet()
 
   const refreshBalances = async () => {
     setIsRefreshing(true)
@@ -102,10 +104,13 @@ export function WalletBalance() {
         <div className="mb-6 p-4 bg-primary/5 rounded-lg">
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-1">Total Portfolio Value</p>
-            <p className="text-3xl font-bold">${getTotalUsdValue().toLocaleString()}</p>
+            <p className="text-3xl font-bold">${(getTotalUsdValue() + hostedBalance).toLocaleString()}</p>
             <div className="flex items-center justify-center gap-1 mt-1">
               <TrendingUp className="h-4 w-4 text-green-500" />
               <span className="text-sm text-green-600">+12.5% (24h)</span>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Includes ${hostedBalance.toFixed(2)} in hosted wallet
             </div>
           </div>
         </div>

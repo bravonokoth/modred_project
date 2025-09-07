@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { MultiWalletConnectButton } from "@/components/wallet/multi-wallet-connect-button"
-import { WalletStatus } from "@/components/wallet/wallet-status"
+import { EnhancedWalletStatus } from "@/components/wallet/enhanced-wallet-status"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { 
   Shield, 
@@ -76,8 +76,7 @@ export function DashboardNav() {
           {/* Right Side Actions */}
           <div className="flex items-center space-x-3">
             <ThemeToggle />
-            <WalletStatus />
-            <MultiWalletConnectButton />
+            <EnhancedWalletStatus />
             
             {/* Mobile Menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>

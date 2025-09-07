@@ -1,12 +1,31 @@
 "use client";
 
 import { AuthGuard } from "@/components/wallet/auth-guard";
-import { DisputeManagement } from "@/components/disputes/dispute-management";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Shield, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+// Dynamically import heavy component to improve loading
+const DisputeManagement = dynamic(
+  () => import("@/components/disputes/dispute-management").then(mod => ({ default: mod.DisputeManagement })),
+  { 
+    loading: () => (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+);
 export default function DisputesPage() {
   const router = useRouter();
 

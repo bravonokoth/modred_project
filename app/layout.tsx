@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   title: "Modred - Blockchain IP Management Platform",
   description: "Secure, register, and manage your intellectual property on the blockchain with Modred",
   generator: "modred.app",
+  keywords: "blockchain, intellectual property, IP management, NFT, licensing",
+  authors: [{ name: "Modred Team" }],
+  viewport: "width=device-width, initial-scale=1",
 };
 
 export default function RootLayout({

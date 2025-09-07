@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Wallet, Download, CheckCircle, AlertCircle, Mail } from "lucide-react";
+import { Wallet, Download, CheckCircle, AlertCircle, Mail, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
 
@@ -30,7 +30,7 @@ const wallets = [
     icon: "🦊",
     description: "Most popular Ethereum wallet",
     downloadUrl: "https://metamask.io/download/",
-    installed: typeof window !== "undefined" && !!(window as any).ethereum?.isMetaMask,
+    installed: typeof window !== "undefined" && typeof (window as any).ethereum !== "undefined",
   },
   {
     id: "hashpack",
@@ -48,7 +48,7 @@ const wallets = [
     icon: "👻",
     description: "Leading Solana wallet",
     downloadUrl: "https://phantom.app/download",
-    installed: typeof window !== "undefined" && !!(window as any).solana?.isPhantom,
+    installed: typeof window !== "undefined" && typeof (window as any).solana !== "undefined",
   },
   {
     id: "dummy",
@@ -68,7 +68,7 @@ export function MultiWalletConnectButton() {
   const [showDummyForm, setShowDummyForm] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { accountId, isConnected, isInitialized, connect: connectHedera } = useHederaWallet();
+  const { accountId, isConnected, isInitialized, connect: connectHedera, error: hederaError } = useHederaWallet();
 
   const handleConnect = async (wallet: any) => {
     setConnectingWallet(wallet.id);
@@ -85,29 +85,67 @@ export function MultiWalletConnectButton() {
 
       if (wallet.id === "hashpack") {
         if (!isInitialized) {
-          throw new Error("Hedera wallet not initialized");
+          toast({
+            title: "Wallet Not Ready",
+            description: "Hedera wallet is still initializing. Please try again in a moment.",
+            variant: "destructive",
+          });
+          setConnectingWallet(null);
+          return;
         }
-        if (!isConnected) {
+        
+        if (hederaError) {
+          throw new Error(hederaError);
+        }
+        
+        try {
           await connectHedera();
+          // Wait for connection to complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          if (!accountId) {
+            throw new Error("Failed to get Hedera account ID");
+          }
+          address = accountId;
+        } catch (hederaErr: any) {
+          throw new Error(`Hedera connection failed: ${hederaErr.message}`);
         }
-        if (!accountId) {
-          throw new Error("No Hedera account connected");
-        }
-        address = accountId;
       } else if (wallet.id === "metamask") {
-        if (!(window as any).ethereum?.isMetaMask) {
+        if (typeof (window as any).ethereum === "undefined") {
           throw new Error("MetaMask not installed");
         }
-        const accounts = await (window as any).ethereum.request({
-          method: "eth_requestAccounts",
-        });
-        address = accounts[0];
+        
+        try {
+          const accounts = await (window as any).ethereum.request({
+            method: "eth_requestAccounts",
+          });
+          if (!accounts || accounts.length === 0) {
+            throw new Error("No accounts found");
+          }
+          address = accounts[0];
+        } catch (ethErr: any) {
+          if (ethErr.code === 4001) {
+            throw new Error("User rejected the connection request");
+          }
+          throw new Error(`MetaMask connection failed: ${ethErr.message}`);
+        }
       } else if (wallet.id === "phantom") {
-        if (!(window as any).solana?.isPhantom) {
+        if (typeof (window as any).solana === "undefined") {
           throw new Error("Phantom not installed");
         }
-        const response = await (window as any).solana.connect();
-        address = response.publicKey.toString();
+        
+        try {
+          const response = await (window as any).solana.connect();
+          if (!response || !response.publicKey) {
+            throw new Error("Failed to get Solana public key");
+          }
+          address = response.publicKey.toString();
+        } catch (solErr: any) {
+          if (solErr.code === 4001) {
+            throw new Error("User rejected the connection request");
+          }
+          throw new Error(`Phantom connection failed: ${solErr.message}`);
+        }
       }
 
       if (!address) {
@@ -125,11 +163,12 @@ export function MultiWalletConnectButton() {
       });
 
       setIsOpen(false);
+      setConnectingWallet(null);
       router.push("/dashboard");
     } catch (err: any) {
       toast({
         title: "Connection Failed",
-        description: `Failed to connect to ${wallet.name}: ${err.message}`,
+        description: err.message || `Failed to connect to ${wallet.name}`,
         variant: "destructive",
       });
     } finally {
@@ -161,6 +200,7 @@ export function MultiWalletConnectButton() {
       setIsOpen(false);
       setShowDummyForm(false);
       setDummyEmail("");
+      setConnectingWallet(null);
       router.push("/dashboard");
     } catch (err: any) {
       toast({
@@ -272,7 +312,10 @@ export function MultiWalletConnectButton() {
                           size="sm"
                         >
                           {connectingWallet === wallet.id ? (
-                            "Connecting..."
+                            <>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Connecting...
+                            </>
                           ) : (
                             <>
                               <CheckCircle className="h-4 w-4 mr-1" />

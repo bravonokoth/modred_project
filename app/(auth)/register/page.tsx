@@ -54,6 +54,12 @@ export default function RegisterPage() {
         description: "Welcome to Modred! Please verify your email.",
       })
       
+      // Store auth for immediate login
+      const authToken = JSON.stringify({ address: formData.email, chain: "email" });
+      localStorage.setItem("authToken", authToken);
+      document.cookie = `auth-token=${authToken}; path=/; max-age=86400`;
+      localStorage.setItem("walletAddress", formData.email);
+      
       window.location.href = "/dashboard"
     } catch (error) {
       toast({

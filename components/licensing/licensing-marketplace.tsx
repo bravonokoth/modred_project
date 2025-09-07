@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { IPAssetCard } from "./ip-asset-card"
 import { LicenseRequestDialog } from "./license-request-dialog"
 import { MyLicensesTab } from "./my-licenses-tab"
+import { PaymentDialog } from "@/components/wallet/payment-dialog"
 import { Search, SlidersHorizontal } from "lucide-react"
 
 // Mock data for IP assets
@@ -112,6 +113,7 @@ export function LicensingMarketplace() {
   const [sortBy, setSortBy] = useState("popular")
   const [selectedAsset, setSelectedAsset] = useState<any>(null)
   const [showLicenseDialog, setShowLicenseDialog] = useState(false)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
 
   const filteredAssets = mockIPAssets.filter((asset) => {
     const matchesSearch =
@@ -145,6 +147,12 @@ export function LicensingMarketplace() {
     setShowLicenseDialog(true)
   }
 
+  const handlePaymentSuccess = () => {
+    toast({
+      title: "Purchase Successful!",
+      description: "You have successfully licensed the IP asset.",
+    })
+  }
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Tabs defaultValue="marketplace" className="w-full">
@@ -282,6 +290,14 @@ export function LicensingMarketplace() {
 
       {/* License Request Dialog */}
       <LicenseRequestDialog asset={selectedAsset} open={showLicenseDialog} onOpenChange={setShowLicenseDialog} />
+      
+      {/* Payment Dialog */}
+      <PaymentDialog 
+        asset={selectedAsset} 
+        open={showPaymentDialog} 
+        onOpenChange={setShowPaymentDialog}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
     </div>
   )
 }

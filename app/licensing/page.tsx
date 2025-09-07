@@ -1,12 +1,31 @@
 "use client";
 
 import { AuthGuard } from "@/components/wallet/auth-guard";
-import { LicensingMarketplace } from "@/components/licensing/licensing-marketplace";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Scale, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+// Dynamically import heavy component to improve loading
+const LicensingMarketplace = dynamic(
+  () => import("@/components/licensing/licensing-marketplace").then(mod => ({ default: mod.LicensingMarketplace })),
+  { 
+    loading: () => (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-64 bg-muted rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+);
 export default function LicensingPage() {
   const router = useRouter();
 

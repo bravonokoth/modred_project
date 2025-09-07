@@ -1,5 +1,6 @@
 import type React from "react"
 import { Card } from "@/components/ui/card"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Shield } from "lucide-react"
 import Link from "next/link"
 
@@ -13,6 +14,9 @@ export default function AuthLayout({
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
+          <div className="flex justify-end mb-4">
+            <ThemeToggle />
+          </div>
           <Link href="/" className="inline-flex items-center space-x-2">
             <Shield className="h-8 w-8 text-primary" />
             <span className="font-heading font-bold text-2xl text-foreground">Modred</span>

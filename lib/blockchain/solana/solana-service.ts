@@ -21,8 +21,16 @@ export class SolanaService {
 
     try {
       const response = await this.provider.connect();
+      
+      if (!response || !response.publicKey) {
+        throw new Error("Failed to get public key from wallet");
+      }
+      
       return response.publicKey.toString();
     } catch (error) {
+      if ((error as any).code === 4001) {
+        throw new Error("User rejected the connection request");
+      }
       throw new Error(`Failed to connect to Solana wallet: ${(error as Error).message}`);
     }
   }

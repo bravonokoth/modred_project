@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { PaymentDialog } from "@/components/wallet/payment-dialog"
 import { Star, Shield, Eye, Scale } from "lucide-react"
 import Image from "next/image"
+import { useState } from "react"
 
 interface IPAssetCardProps {
   asset: {
@@ -27,12 +29,23 @@ interface IPAssetCardProps {
 }
 
 export function IPAssetCard({ asset, onLicenseRequest }: IPAssetCardProps) {
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
+  const handleBuyNow = () => {
+    setShowPaymentDialog(true)
+  }
+
+  const handlePaymentSuccess = () => {
+    // Handle successful payment
+    console.log("Payment successful for asset:", asset.id)
+  }
   return (
-    <Card className="group hover:shadow-lg transition-all duration-200 hover:border-primary/20">
+    <>
+      <Card className="group hover:shadow-lg transition-all duration-200 hover:border-primary/20">
       <div className="relative">
         <Image
           src={asset.image || "/placeholder.svg"}
@@ -116,10 +129,23 @@ export function IPAssetCard({ asset, onLicenseRequest }: IPAssetCardProps) {
           </Button>
         </div>
 
-        <Button onClick={onLicenseRequest} className="w-full">
-          Request License
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleBuyNow} className="flex-1">
+            Buy Now
+          </Button>
+          <Button onClick={onLicenseRequest} variant="outline" className="flex-1">
+            Request License
+          </Button>
+        </div>
       </CardContent>
     </Card>
+
+      <PaymentDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        asset={asset}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
+    </>
   )
 }

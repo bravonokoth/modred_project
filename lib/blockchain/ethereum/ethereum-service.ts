@@ -15,11 +15,20 @@ export class EthereumService {
     }
 
     try {
+      // Request account access
       const accounts = await this.provider.request({
         method: "eth_requestAccounts",
       });
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+      
       return accounts[0];
     } catch (error) {
+      if ((error as any).code === 4001) {
+        throw new Error("User rejected the connection request");
+      }
       throw new Error(`Failed to connect to MetaMask: ${(error as Error).message}`);
     }
   }

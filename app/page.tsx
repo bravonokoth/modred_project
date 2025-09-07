@@ -3,7 +3,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge"
 import { Shield, FileText, Scale, DollarSign, Users, Lock } from "lucide-react"
 import Link from "next/link"
-import { WalletStatus } from "@/components/wallet/wallet-status"
+import { EnhancedWalletStatus } from "@/components/wallet/enhanced-wallet-status"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LandingPage() {
@@ -38,10 +38,15 @@ export default function LandingPage() {
             {/* Right side: Wallet + Toggle + Dashboard */}
             <div className="flex items-center space-x-4">
               <ThemeToggle /> {}
-              <WalletStatus />
-              <Button asChild>
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
+              <EnhancedWalletStatus />
+              <div className="flex gap-2">
+                <Button variant="outline" asChild>
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -65,7 +70,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
-              <Link href="/register-ip">Register Your IP</Link>
+              <Link href="/dashboard/ip-registration">Register Your IP</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <Link href="#how-it-works">Learn More</Link>
@@ -203,7 +208,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
-              <Link href="/register-ip">Start Registration</Link>
+              <Link href="/dashboard/ip-registration">Start Registration</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <Link href="/dashboard">View Dashboard</Link>
@@ -230,7 +235,7 @@ export default function LandingPage() {
               <h4 className="font-heading font-semibold mb-4">Platform</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="/register-ip" className="hover:text-foreground transition-colors">
+                  <Link href="/dashboard/ip-registration" className="hover:text-foreground transition-colors">
                     Register IP
                   </Link>
                 </li>

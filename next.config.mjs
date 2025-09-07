@@ -2,7 +2,30 @@
 const nextConfig = {
   swcMinify: true, // SWC minifier enabled as you prefer
   
+  // Optimize loading performance
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+  
+  // Enable static optimization
+  output: 'standalone',
+  
   webpack: (config, { isServer, webpack }) => {
+    // Optimize bundle size
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+        },
+      },
+    };
+
     // Client-side configuration
     if (!isServer) {
       config.resolve.fallback = {

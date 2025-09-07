@@ -4,6 +4,8 @@ import { AuthGuard } from "@/components/wallet/auth-guard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { WalletBalanceCard } from "@/components/wallet/wallet-balance-card";
 import { FileText, Scale, Shield, DollarSign, Plus, TrendingUp, LogOut, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,12 +46,13 @@ export default function DashboardPage() {
                 <p className="text-muted-foreground mt-1">Manage your intellectual property portfolio</p>
               </div>
               <div className="flex items-center space-x-4">
+                <ThemeToggle />
                 <Button variant="ghost" onClick={handleBack}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
                 <Button asChild>
-                  <Link href="/register-ip">
+                  <Link href="/dashboard/ip-registration">
                     <Plus className="h-4 w-4 mr-2" />
                     Register New IP
                   </Link>
@@ -152,6 +155,8 @@ export default function DashboardPage() {
 
             {/* Quick Actions */}
             <div className="space-y-6">
+              <WalletBalanceCard />
+              
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading">Quick Actions</CardTitle>
@@ -159,25 +164,25 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button className="w-full justify-start bg-transparent" variant="outline" asChild>
-                    <Link href="/register-ip">
+                    <Link href="/dashboard/ip-registration">
                       <Plus className="h-4 w-4 mr-2" />
                       Register New IP
                     </Link>
                   </Button>
                   <Button className="w-full justify-start bg-transparent" variant="outline" asChild>
-                    <Link href="/licensing">
+                    <Link href="/licensing" prefetch={true}>
                       <Scale className="h-4 w-4 mr-2" />
                       Create License
                     </Link>
                   </Button>
                   <Button className="w-full justify-start bg-transparent" variant="outline" asChild>
-                    <Link href="/royalties">
+                    <Link href="/royalties" prefetch={true}>
                       <TrendingUp className="h-4 w-4 mr-2" />
                       View Royalties
                     </Link>
                   </Button>
                   <Button className="w-full justify-start bg-transparent" variant="outline" asChild>
-                    <Link href="/disputes">
+                    <Link href="/disputes" prefetch={true}>
                       <Shield className="h-4 w-4 mr-2" />
                       Manage Disputes
                     </Link>
