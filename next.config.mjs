@@ -1,89 +1,77 @@
+// next.config.mjs
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  swcMinify: true, // SWC minifier enabled as you prefer
-  
-  // Optimize loading performance
+  reactStrictMode: true,
+  transpilePackages: [
+    '@hashgraph/sdk',
+    '@metaplex-foundation/js',
+    '@reown/walletkit'
+  ],
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    esmExternals: 'loose'
   },
-  
-  // Enable static optimization
-  output: 'standalone',
-  
-  webpack: (config, { isServer, webpack }) => {
-    // Optimize bundle size
-    config.optimization = {
-      ...config.optimization,
-      splitChunks: {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-        },
-      },
+  webpack: (config, { isServer }) => {
+    // Fix for 'exports is not defined' error
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@hashgraph/sdk': require.resolve('@hashgraph/sdk'),
     };
 
-    // Client-side configuration
+    // Handle Node.js polyfills for client-side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        // Enable polyfills for HashConnect
-        crypto: "crypto-browserify",
-        stream: "stream-browserify", 
-        buffer: "buffer",
-        util: "util",
-        assert: "assert",
-        process: "process/browser",
-        zlib: "browserify-zlib",
-        // Disable server-side modules
         fs: false,
         net: false,
         tls: false,
-        child_process: false,
-        readline: false,
-        http: false,
-        https: false,
-        url: false,
-        path: false,
-        os: false,
+        crypto: require.resolve('crypto-browserify'),
+        stream: require.resolve('stream-browserify'),
+        url: require.resolve('url'),
+        zlib: require.resolve('browserify-zlib'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
+        assert: require.resolve('assert'),
+        os: require.resolve('os-browserify'),
+        path: require.resolve('path-browserify'),
+        buffer: require.resolve('buffer'),
+        process: require.resolve('process/browser'),
+        util: require.resolve('util'),
+        // Additional fallbacks for blockchain libraries
+        vm: false,
+        child_process: false
       };
 
-      // Provide global process and Buffer
+      // Add global polyfills
       config.plugins.push(
-        new webpack.ProvidePlugin({
-          process: ["process/browser", "default"],
-          Buffer: ["buffer", "Buffer"],
+        new (require('webpack')).ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
         })
       );
     } else {
-      // Server-side - disable all polyfills to prevent server errors
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        crypto: false,
-        stream: false,
-        buffer: false,
-        util: false,
-        assert: false,
-        process: false,
-        zlib: false,
-        fs: false,
-        net: false,
-        tls: false,
-      };
+      // Server-side externals to prevent bundling issues
+      config.externals = [
+        ...config.externals,
+        {
+          '@hashgraph/sdk': '@hashgraph/sdk',
+          'hashconnect': 'hashconnect'
+        }
+      ];
     }
 
-    // Suppress warnings
-    config.ignoreWarnings = [
-      /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/,
-      /Module not found: Can't resolve 'pino-pretty'/,
-      /Cannot resolve dependency "crypto"/,
-    ];
+    // Handle module resolution for both CommonJS and ES modules
+    config.module.rules.push({
+      test: /\.m?js$/,
+      resolve: {
+        fullySpecified: false
+      }
+    });
 
     return config;
-  },
+  }
 };
 
 export default nextConfig;

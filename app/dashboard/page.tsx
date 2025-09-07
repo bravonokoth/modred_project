@@ -13,23 +13,22 @@ import { useRouter } from "next/navigation";
 export default function DashboardPage() {
   const router = useRouter();
 
-  // Logout function (customize based on your auth system)
   const handleLogout = async () => {
     try {
-      // Example: Disconnect wallet (e.g., MetaMask)
       if (window.ethereum) {
         await window.ethereum.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] });
       }
-      // Clear session data
       localStorage.removeItem("walletAddress");
-      // Redirect to home or login page
+      localStorage.removeItem("hedera_wallet_account");
+      localStorage.removeItem("hedera_wallet_connected");
+      localStorage.removeItem("authToken");
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       router.push("/");
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
-  // Back button handler (to previous page, likely landing page)
   const handleBack = () => {
     router.back();
   };
@@ -37,7 +36,6 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
@@ -52,7 +50,7 @@ export default function DashboardPage() {
                   Back
                 </Button>
                 <Button asChild>
-                  <Link href="/dashboard/ip-registration">
+                  <Link href="/ip-registration">
                     <Plus className="h-4 w-4 mr-2" />
                     Register New IP
                   </Link>
@@ -67,7 +65,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -79,7 +76,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">+2 from last month</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Active Licenses</CardTitle>
@@ -90,7 +86,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">+1 from last month</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Royalties</CardTitle>
@@ -101,7 +96,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">+12% from last month</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Disputes</CardTitle>
@@ -115,7 +109,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Recent IP Assets */}
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
@@ -152,11 +145,8 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* Quick Actions */}
             <div className="space-y-6">
               <WalletBalanceCard />
-              
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading">Quick Actions</CardTitle>
@@ -164,7 +154,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button className="w-full justify-start bg-transparent" variant="outline" asChild>
-                    <Link href="/dashboard/ip-registration">
+                    <Link href="/ip-registration">
                       <Plus className="h-4 w-4 mr-2" />
                       Register New IP
                     </Link>
@@ -189,7 +179,6 @@ export default function DashboardPage() {
                   </Button>
                 </CardContent>
               </Card>
-
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading">Recent Activity</CardTitle>

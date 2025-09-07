@@ -1,24 +1,14 @@
 import "@/lib/polyfills";
 import type React from "react";
-import type { Metadata } from "next";
-import { Work_Sans, Open_Sans } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { ClientWrapper } from "@/components/client-wrapper";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
-
-const workSans = Work_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-work-sans",
-  weight: ["400", "600", "700"],
-});
-
-const openSans = Open_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-open-sans",
-  weight: ["400", "500"],
-});
+import "@fontsource/open-sans/400.css";
+import "@fontsource/open-sans/500.css";
+import "@fontsource/work-sans/400.css";
+import "@fontsource/work-sans/600.css";
+import "@fontsource/work-sans/700.css";
 
 export const metadata: Metadata = {
   title: "Modred - Blockchain IP Management Platform",
@@ -26,8 +16,34 @@ export const metadata: Metadata = {
   generator: "modred.app",
   keywords: "blockchain, intellectual property, IP management, NFT, licensing",
   authors: [{ name: "Modred Team" }],
-  viewport: "width=device-width, initial-scale=1",
+  openGraph: {
+    title: "Modred - Blockchain IP Management Platform",
+    description: "Secure, register, and manage your intellectual property on the blockchain with Modred",
+    type: "website",
+    siteName: "Modred",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Modred - Blockchain IP Management Platform",
+    description: "Secure, register, and manage your intellectual property on the blockchain with Modred",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
+
+const generateElements = (count: number, className: string) =>
+  Array.from({ length: count }, (_, i) => (
+    <div key={`${className}-${i}`} className={className} />
+  ));
 
 export default function RootLayout({
   children,
@@ -35,35 +51,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans ${workSans.variable} ${openSans.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-sans antialiased">
         <div className="cosmic-sky">
-          {/* Stars */}
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          {/* Comets */}
-          <div className="comet"></div>
-          <div className="comet"></div>
-          <div className="comet"></div>
-          <div className="comet"></div>
-          <div className="comet"></div>
+          {generateElements(15, "star")}
+          {generateElements(5, "comet")}
         </div>
-        <ClientWrapper>
-          {children}
-        </ClientWrapper>
+        <ClientWrapper>{children}</ClientWrapper>
         <Toaster />
       </body>
     </html>
