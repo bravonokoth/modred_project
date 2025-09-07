@@ -1,3 +1,5 @@
+"use client";
+
 import { AuthGuard } from "@/components/wallet/auth-guard"
 import { IPRegistrationForm } from "@/app/(dashboard)/ip-registration/components/IPRegistrationForm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
