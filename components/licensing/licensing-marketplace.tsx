@@ -1,21 +1,21 @@
-"use client"
+// components/licensing/licensing-marketplace.tsx
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { IPAssetCard } from "./ip-asset-card"
-import { LicenseRequestDialog } from "./license-request-dialog"
-import { MyLicensesTab } from "./my-licenses-tab"
-import { PaymentDialog } from "@/components/wallet/payment-dialog"
-import { Search, SlidersHorizontal } from "lucide-react"
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IPAssetCard } from "./ip-asset-card";
+import { LicenseRequestDialog } from "./license-request-dialog";
+import { MyLicensesTab } from "./my-licenses-tab";
+import { PaymentDialog } from "@/components/wallet/payment-dialog";
+import { Search, SlidersHorizontal } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { IPAsset } from "@/types"; 
 
-
-// Mock data for IP assets
-const mockIPAssets = [
+const mockIPAssets: IPAsset[] = [
   {
     id: "1",
     title: "Mobile App Design System",
@@ -106,55 +106,57 @@ const mockIPAssets = [
     rating: 4.5,
     verified: true,
   },
-]
+];
 
 export function LicensingMarketplace() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedType, setSelectedType] = useState("all")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [sortBy, setSortBy] = useState("popular")
-  const [selectedAsset, setSelectedAsset] = useState<any>(null)
-  const [showLicenseDialog, setShowLicenseDialog] = useState(false)
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("popular");
+  const [selectedAsset, setSelectedAsset] = useState<IPAsset | null>(null);
+  const [showLicenseDialog, setShowLicenseDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const filteredAssets = mockIPAssets.filter((asset) => {
     const matchesSearch =
       asset.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      asset.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesType = selectedType === "all" || asset.type === selectedType
-    const matchesCategory = selectedCategory === "all" || asset.category === selectedCategory
+    const matchesType = selectedType === "all" || asset.type === selectedType;
+    const matchesCategory = selectedCategory === "all" || asset.category === selectedCategory;
 
-    return matchesSearch && matchesType && matchesCategory
-  })
+    return matchesSearch && matchesType && matchesCategory;
+  });
 
   const sortedAssets = [...filteredAssets].sort((a, b) => {
     switch (sortBy) {
       case "price-low":
-        return Number.parseFloat(a.price) - Number.parseFloat(b.price)
+        return Number.parseFloat(a.price) - Number.parseFloat(b.price);
       case "price-high":
-        return Number.parseFloat(b.price) - Number.parseFloat(a.price)
+        return Number.parseFloat(b.price) - Number.parseFloat(a.price);
       case "rating":
-        return b.rating - a.rating
+        return b.rating - a.rating;
       case "recent":
-        return b.licensesIssued - a.licensesIssued
+        return b.licensesIssued - a.licensesIssued;
       default: // popular
-        return b.licensesIssued - a.licensesIssued
+        return b.licensesIssued - a.licensesIssued;
     }
-  })
+  });
 
-  const handleLicenseRequest = (asset: any) => {
-    setSelectedAsset(asset)
-    setShowLicenseDialog(true)
-  }
+  const handleLicenseRequest = (asset: IPAsset) => {
+    setSelectedAsset(asset);
+    setShowLicenseDialog(true);
+  };
 
   const handlePaymentSuccess = () => {
     toast({
       title: "Purchase Successful!",
       description: "You have successfully licensed the IP asset.",
-    })
-  }
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Tabs defaultValue="marketplace" className="w-full">
@@ -165,7 +167,6 @@ export function LicensingMarketplace() {
         </TabsList>
 
         <TabsContent value="marketplace" className="space-y-6">
-          {/* Search and Filters */}
           <Card>
             <CardHeader>
               <CardTitle className="font-heading flex items-center gap-2">
@@ -237,7 +238,6 @@ export function LicensingMarketplace() {
             </CardContent>
           </Card>
 
-          {/* IP Assets Grid */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {sortedAssets.map((asset) => (
               <IPAssetCard key={asset.id} asset={asset} onLicenseRequest={() => handleLicenseRequest(asset)} />
@@ -256,9 +256,9 @@ export function LicensingMarketplace() {
                   variant="outline"
                   className="mt-4 bg-transparent"
                   onClick={() => {
-                    setSearchQuery("")
-                    setSelectedType("all")
-                    setSelectedCategory("all")
+                    setSearchQuery("");
+                    setSelectedType("all");
+                    setSelectedCategory("all");
                   }}
                 >
                   Clear Filters
@@ -290,16 +290,13 @@ export function LicensingMarketplace() {
         </TabsContent>
       </Tabs>
 
-      {/* License Request Dialog */}
       <LicenseRequestDialog asset={selectedAsset} open={showLicenseDialog} onOpenChange={setShowLicenseDialog} />
-      
-      {/* Payment Dialog */}
-      <PaymentDialog 
-        asset={selectedAsset} 
-        open={showPaymentDialog} 
+      <PaymentDialog
+        asset={selectedAsset}
+        open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
         onPaymentSuccess={handlePaymentSuccess}
       />
     </div>
-  )
+  );
 }
