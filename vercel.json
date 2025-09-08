@@ -4,8 +4,13 @@
   "framework": "nextjs",
   "functions": {
     "app/api/**/*.ts": {
-      "runtime": "vercel-node"
+      "runtime": "nodejs20.x"
     }
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_NAME": "Modred",
+    "NEXT_PUBLIC_APP_DESCRIPTION": "Blockchain IP Management Platform",
+    "NEXT_PUBLIC_HEDERA_NETWORK": "testnet",
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID": "demo-project-id"
   }
-  
 }
