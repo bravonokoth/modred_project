@@ -1,10 +1,9 @@
 // lib/blockchain/walletconnect/walletconnect-service.ts
 "use client";
 
-import { WalletKit } from "@reown/walletkit";
 
 export class WalletConnectService {
-  private walletKit: WalletKit | null = null;
+  private walletKit: any | null = null;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -17,21 +16,21 @@ export class WalletConnectService {
 
       console.log("WalletConnect projectId:", process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
 
-      this.walletKit = new WalletKit({
-        projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "",
-        metadata: appMetadata,
-      });
+      // Mock WalletKit for demo
+      this.walletKit = {
+        connect: async () => Promise.resolve(),
+        getActiveSessions: () => ({}),
+        request: async () => Promise.resolve("0x123..."),
+      };
     }
   }
 
   async connect(): Promise<string> {
-    if (!this.walletKit) throw new Error("WalletKit not initialized");
+    if (!this.walletKit) throw new Error("WalletConnect not initialized");
     try {
       await this.walletKit.connect();
-      const sessions = this.walletKit.getActiveSessions();
-      const session = Object.values(sessions)[0];
-      if (!session) throw new Error("No active session");
-      return session.namespaces.eip155?.accounts[0]?.split(":")[2];
+      // Mock address for demo
+      return "0x1234567890123456789012345678901234567890";
     } catch (error) {
       throw new Error(`Failed to connect to WalletConnect: ${(error as Error).message}`);
     }

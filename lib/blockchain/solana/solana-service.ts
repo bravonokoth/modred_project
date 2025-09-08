@@ -68,7 +68,7 @@ export class SolanaService {
     }
   }
 
-  async sendTransaction(transaction: Transaction) {
+  async sendTransaction(transaction: any) {
     if (!this.provider) {
       throw new Error("Solana provider not available");
     }

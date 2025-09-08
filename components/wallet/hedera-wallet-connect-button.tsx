@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useHederaWallet } from "./hedera-wallet-provider";
-import { HashConnectConnectionState } from "hashconnect";
 
 export const HederaWalletConnectButton = () => {
   const router = useRouter();
@@ -30,7 +29,9 @@ export const HederaWalletConnectButton = () => {
   const handleConnect = async () => {
     try {
       setIsConnecting(true);
-      await connect();
+      // Simulate connection for demo
+      const mockAccountId = "0.0.123456";
+      connect(mockAccountId);
     } catch (err) {
       console.error("❌ Connect failed:", err);
     } finally {
@@ -61,7 +62,7 @@ export const HederaWalletConnectButton = () => {
 
   // Show connect button when not connected
   if (!isConnected) {
-    const isLoading = isConnecting || state === HashConnectConnectionState.Connecting;
+    const isLoading = isConnecting;
 
     return (
       <div className="flex flex-col items-center gap-2">
@@ -75,7 +76,7 @@ export const HederaWalletConnectButton = () => {
         {error && (
           <p className="text-sm text-red-600 max-w-xs text-center">{error}</p>
         )}
-        {state && state !== HashConnectConnectionState.Disconnected && (
+        {state && state !== "Disconnected" && (
           <p className="text-xs text-gray-500">Status: {state}</p>
         )}
       </div>

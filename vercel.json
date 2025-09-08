@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/**/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_NAME": "Modred",
+    "NEXT_PUBLIC_APP_DESCRIPTION": "Blockchain IP Management Platform",
+    "NEXT_PUBLIC_HEDERA_NETWORK": "testnet",
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID": "demo-project-id"
+  }
+}

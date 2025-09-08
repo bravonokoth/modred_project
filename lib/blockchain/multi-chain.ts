@@ -121,6 +121,7 @@ export class MultiChainService {
       this.services.set("hedera", new HederaService());
     } catch (error) {
       console.error("Failed to initialize blockchain services:", error);
+      // Continue without services for demo purposes
     }
   }
 

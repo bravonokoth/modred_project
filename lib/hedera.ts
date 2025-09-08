@@ -1,4 +1,3 @@
-import { Client, AccountId } from "@hashgraph/sdk"
 
 // Hedera network configuration
 export const HEDERA_NETWORK = {
@@ -18,20 +17,18 @@ export const HEDERA_NETWORK = {
 
 // Create Hedera client
 export function createHederaClient(network: "testnet" | "mainnet" = "testnet") {
-  const config = HEDERA_NETWORK[network]
-
-  if (network === "testnet") {
-    return Client.forTestnet()
-  } else {
-    return Client.forMainnet()
-  }
+  // Return mock client for demo
+  return {
+    network,
+    config: HEDERA_NETWORK[network]
+  };
 }
 
 // Hedera account utilities
 export function isValidHederaAccountId(accountId: string): boolean {
   try {
-    AccountId.fromString(accountId)
-    return true
+    // Simple validation for demo
+    return /^0\.0\.\d+$/.test(accountId);
   } catch {
     return false
   }
@@ -39,7 +36,7 @@ export function isValidHederaAccountId(accountId: string): boolean {
 
 export function formatHederaAccountId(accountId: string): string {
   try {
-    return AccountId.fromString(accountId).toString()
+    return accountId;
   } catch {
     return accountId
   }

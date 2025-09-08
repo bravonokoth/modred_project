@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PaymentDialog } from "@/components/wallet/payment-dialog"
 import { Star, Shield, Eye, Scale } from "lucide-react"
-import Image from "next/image"
 import { useState } from "react"
 
 interface IPAssetCardProps {
@@ -47,13 +46,14 @@ export function IPAssetCard({ asset, onLicenseRequest }: IPAssetCardProps) {
     <>
       <Card className="group hover:shadow-lg transition-all duration-200 hover:border-primary/20">
       <div className="relative">
-        <Image
-          src={asset.image || "/placeholder.svg"}
-          alt={asset.title}
-          width={300}
-          height={200}
-          className="w-full h-48 object-cover rounded-t-lg"
-        />
+        <div className="w-full h-48 bg-gradient-to-br from-primary/10 to-primary/5 rounded-t-lg flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Shield className="h-8 w-8 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-primary">{asset.type}</p>
+          </div>
+        </div>
         {asset.verified && (
           <Badge className="absolute top-2 right-2 bg-primary">
             <Shield className="h-3 w-3 mr-1" />

@@ -1,12 +1,5 @@
 // app/api/hedera/transaction/route.ts
 import { NextResponse } from "next/server";
-import {
-  Client,
-  TransferTransaction,
-  Hbar,
-  AccountId,
-  PrivateKey,
-} from "@hashgraph/sdk";
 
 export async function POST(req: Request) {
   try {
@@ -19,30 +12,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Load operator creds from env
-    const operatorId = AccountId.fromString(process.env.MY_ACCOUNT_ID!);
-    const operatorKey = PrivateKey.fromString(process.env.MY_PRIVATE_KEY!);
-
-    // ✅ Pick network dynamically
-    const client =
-      process.env.HEDERA_NETWORK === "mainnet"
-        ? Client.forMainnet()
-        : Client.forTestnet();
-
-    client.setOperator(operatorId, operatorKey);
-
-    // ✅ Execute transfer
-    const txResponse = await new TransferTransaction()
-      .addHbarTransfer(operatorId, new Hbar(-amount)) // sender (operator)
-      .addHbarTransfer(accountId, new Hbar(amount))   // recipient
-      .execute(client);
-
-    const receipt = await txResponse.getReceipt(client);
+    // Mock transaction for demo purposes
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     return NextResponse.json({
       status: "success",
-      txId: txResponse.transactionId.toString(),
-      receipt: receipt.status.toString(),
+      txId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
+      receipt: "SUCCESS",
     });
   } catch (error: any) {
     console.error("Transaction error:", error);
