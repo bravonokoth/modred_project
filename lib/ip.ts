@@ -1,21 +1,24 @@
-import { IPAsset, IPRegistrationRequest, IPLicense, IPDispute } from "@/types/ip"
-import { multiChainService } from "./blockchain/multi-chain"
+import { IPAsset, IPRegistrationRequest, IPLicense, IPDispute } from "@/types/ip";
+import { multiChainService } from "./blockchain/multi-chain";
 
 export class IPService {
   async registerIP(request: IPRegistrationRequest): Promise<IPAsset> {
     try {
       // Validate request data
-      this.validateRegistrationRequest(request)
+      this.validateRegistrationRequest(request);
 
       // Mint NFT on selected blockchain
-      const service = multiChainService.getService(request.blockchain)
+      const service = multiChainService.getService(request.blockchain);
+      if (!service) {
+        throw new Error(`Service not available for chain: ${request.blockchain}`);
+      }
       const nftResult = await service.mintIPNFT({
         title: request.title,
         description: request.description,
         type: request.type,
         category: request.category,
         tags: request.tags,
-      })
+      });
 
       // Create IP asset record
       const ipAsset: IPAsset = {
@@ -35,7 +38,7 @@ export class IPService {
         },
         blockchain: request.blockchain,
         tokenId: nftResult.tokenId,
-        contractAddress: nftResult.contractAddress,
+        contractAddress: nftResult.contractAddress || undefined, // Handle optional contractAddress
         status: "registered",
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -52,11 +55,11 @@ export class IPService {
             period: "1 year",
           },
         },
-      }
+      };
 
-      return ipAsset
+      return ipAsset;
     } catch (error) {
-      throw new Error(`IP registration failed: ${error}`)
+      throw new Error(`IP registration failed: ${(error as Error).message}`);
     }
   }
 
