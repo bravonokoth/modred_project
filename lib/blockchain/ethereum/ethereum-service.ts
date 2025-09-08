@@ -1,4 +1,6 @@
-// lib/blockchain/ethereum/ethereum-service.ts
+"use client";
+
+import type { ethers as EthersTypes } from "ethers";
 
 export class EthereumService {
   private provider: any = null;
@@ -15,15 +17,12 @@ export class EthereumService {
     }
 
     try {
-      // Request account access
       const accounts = await this.provider.request({
         method: "eth_requestAccounts",
       });
-      
       if (!accounts || accounts.length === 0) {
         throw new Error("No accounts found");
       }
-      
       return accounts[0];
     } catch (error) {
       if ((error as any).code === 4001) {
@@ -77,7 +76,6 @@ export class EthereumService {
   }
 
   async mintIPNFT(ipData: any) {
-    // Placeholder; requires NFT contract
     try {
       return {
         tokenId: `eth_nft_${Math.random().toString(36).substr(2, 9)}`,
@@ -91,7 +89,6 @@ export class EthereumService {
   }
 
   async transferIPNFT(tokenId: string, from: string, to: string) {
-    // Placeholder; requires NFT contract
     try {
       return {
         transactionHash: `0x${Math.random().toString(16).substr(2, 64)}`,
@@ -108,7 +105,6 @@ export class EthereumService {
     }
 
     try {
-      // Dynamically import ethers to avoid server-side issues
       const { ethers } = await import("ethers");
       const signature = await this.provider.request({
         method: "personal_sign",
