@@ -20,7 +20,6 @@ import { useRouter } from "next/navigation";
 import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
 
 const wallets = [
-  // Same wallet array as before
   {
     id: "metamask",
     name: "MetaMask",
@@ -121,6 +120,7 @@ export function MultiWalletConnectButton() {
         setIsOpen(false);
         setConnectingWallet(null);
         setHederaAccountId("");
+        setShowForm(null);
         router.push("/dashboard");
       } catch (hederaErr: any) {
         throw new Error(`Hedera connection failed: ${hederaErr.message}`);
