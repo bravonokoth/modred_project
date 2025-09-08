@@ -1,28 +1,22 @@
-// lib/blockchain/hedera/hedera-service.ts
+"use client";
 
 export class HederaService {
-  private client: Client | null = null;
-
   constructor() {
-    // Initialize client only when needed to avoid server-side issues
-    this.client = null;
+    // No client initialization needed for mock implementation
   }
 
   async connect(): Promise<string> {
-    // Connection handled by HederaWalletProvider
     throw new Error("Use HederaWalletProvider for connection");
   }
 
   async getBalance(accountId: string) {
     try {
-      // Mock balance for demo
       const mockBalance = Math.random() * 1000;
-
       return {
         native: {
           symbol: "HBAR",
           amount: mockBalance,
-          usdValue: mockBalance * 0.07, // Approximate HBAR price
+          usdValue: mockBalance * 0.07,
         },
         tokens: [],
       };
@@ -33,7 +27,6 @@ export class HederaService {
 
   async sendTransaction(transaction: any) {
     try {
-      // Mock transaction for demo
       await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         transactionId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
@@ -46,10 +39,8 @@ export class HederaService {
 
   async mintIPNFT(ipData: any) {
     try {
-      // Mock NFT minting for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
       const tokenId = `0.0.${Math.floor(Math.random() * 999999)}`;
-
       return {
         tokenId,
         transactionId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
@@ -68,9 +59,7 @@ export class HederaService {
 
   async transferIPNFT(tokenId: string, from: string, to: string) {
     try {
-      // Mock transfer for demo
       await new Promise(resolve => setTimeout(resolve, 1000));
-
       return {
         transactionId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
         status: "SUCCESS",
