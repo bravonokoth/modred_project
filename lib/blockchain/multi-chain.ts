@@ -3,7 +3,8 @@
 
 export type SupportedChain = "hedera" | "ethereum" | "solana" | "walletconnect" | "dummy";
 
-// Define a common interface for chain services to improve type safety
+
+
 interface ChainService {
   connect: () => Promise<string>;
   signMessage: (message: string, address: string) => Promise<string>;
@@ -16,6 +17,7 @@ interface ChainService {
     tokenId: string;
     transactionId?: string;
     transactionHash?: string;
+    contractAddress?: string; // Added optional contractAddress
     status: string;
     metadata?: any;
   }>;

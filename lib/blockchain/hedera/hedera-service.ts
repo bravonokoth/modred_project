@@ -44,6 +44,7 @@ export class HederaService {
       return {
         tokenId,
         transactionId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
+        contractAddress: `0x${Math.random().toString(16).substr(2, 40)}`, // Mock contract address
         status: "SUCCESS",
         metadata: {
           name: ipData.title,

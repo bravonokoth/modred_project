@@ -29,13 +29,12 @@ export class SolanaService {
 
   async getBalance(address: string) {
     try {
-      // Mock balance for demo
       const mockBalance = Math.random() * 100;
       return {
         native: {
           symbol: "SOL",
           amount: mockBalance,
-          usdValue: mockBalance * 130, // Approximate SOL price
+          usdValue: mockBalance * 130,
         },
         tokens: [],
       };
@@ -46,7 +45,6 @@ export class SolanaService {
 
   async sendTransaction(transaction: any) {
     try {
-      // Mock transaction for demo
       await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         transactionHash: `sig_${Math.random().toString(36).substr(2, 9)}`,
@@ -59,12 +57,12 @@ export class SolanaService {
 
   async mintIPNFT(ipData: any) {
     try {
-      // Mock NFT minting for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
       const tokenId = `sol_nft_${Math.random().toString(36).substr(2, 9)}`;
       return {
         tokenId,
         transactionHash: `sig_${Math.random().toString(36).substr(2, 9)}`,
+        contractAddress: `sol_${Math.random().toString(36).substr(2, 44)}`, // Mock Solana mint address
         status: "completed",
         metadata: {
           name: ipData.title,
@@ -80,7 +78,6 @@ export class SolanaService {
 
   async transferIPNFT(tokenId: string, from: string, to: string) {
     try {
-      // Mock transfer for demo
       await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         transactionHash: `sig_${Math.random().toString(36).substr(2, 9)}`,
