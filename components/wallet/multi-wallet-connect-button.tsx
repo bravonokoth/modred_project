@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,11 +15,27 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Wallet, Download, CheckCircle, AlertCircle, Mail, Loader2 } from "lucide-react";
+import { Wallet, Download, CheckCircle, AlertCircle, Mail, Loader2, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createWallet, inAppWallet } from "thirdweb/wallets";
+import { useConnect, useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react";
 import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
+import { client, supportedChains } from "@/lib/thirdweb";
 
-const wallets = [
+// Define wallet types with proper thirdweb IDs
+interface WalletConfig {
+  id: string;
+  name: string;
+  chain: string;
+  icon: string;
+  description: string;
+  downloadUrl: string | null;
+  thirdwebId: string | null;
+  installed: boolean;
+}
+
+// Define wallets with proper thirdweb wallet IDs
+const wallets: WalletConfig[] = [
   {
     id: "metamask",
     name: "MetaMask",
@@ -27,7 +43,98 @@ const wallets = [
     icon: "🦊",
     description: "Most popular Ethereum wallet",
     downloadUrl: "https://metamask.io/download/",
+    thirdwebId: "io.metamask",
     installed: typeof window !== "undefined" && typeof (window as any).ethereum !== "undefined",
+  },
+  {
+    id: "trustwallet",
+    name: "Trust Wallet",
+    chain: "ethereum",
+    icon: "🔒",
+    description: "Popular mobile wallet",
+    downloadUrl: "https://trustwallet.com/download",
+    thirdwebId: "com.trustwallet.app",
+    installed: typeof window !== "undefined" && typeof (window as any).trustwallet !== "undefined",
+  },
+  {
+    id: "walletconnect",
+    name: "WalletConnect",
+    chain: "ethereum",
+    icon: "🔗",
+    description: "Connect via QR code",
+    downloadUrl: null,
+    thirdwebId: "walletConnect",
+    installed: true,
+  },
+  {
+    id: "coinbase",
+    name: "Coinbase Wallet",
+    chain: "ethereum",
+    icon: "🔵",
+    description: "Secure multi-chain wallet",
+    downloadUrl: "https://www.coinbase.com/wallet",
+    thirdwebId: "com.coinbase.wallet",
+    installed: typeof window !== "undefined" && typeof (window as any).coinbaseWalletExtension !== "undefined",
+  },
+  {
+    id: "rainbow",
+    name: "Rainbow",
+    chain: "ethereum",
+    icon: "🌈",
+    description: "Beautiful Ethereum wallet",
+    downloadUrl: "https://rainbow.me/download",
+    thirdwebId: "me.rainbow",
+    installed: typeof window !== "undefined" && typeof (window as any).rainbow !== "undefined",
+  },
+  {
+    id: "zerion",
+    name: "Zerion",
+    chain: "ethereum",
+    icon: "💸",
+    description: "DeFi wallet",
+    downloadUrl: "https://zerion.io/download",
+    thirdwebId: "io.zerion.wallet",
+    installed: typeof window !== "undefined" && typeof (window as any).zerionWallet !== "undefined",
+  },
+  {
+    id: "okx",
+    name: "OKX Wallet",
+    chain: "ethereum",
+    icon: "🏦",
+    description: "Secure multi-chain wallet",
+    downloadUrl: "https://www.okx.com/web3",
+    thirdwebId: "com.okx.wallet",
+    installed: typeof window !== "undefined" && typeof (window as any).okxwallet !== "undefined",
+  },
+  {
+    id: "binance",
+    name: "Binance Wallet",
+    chain: "ethereum",
+    icon: "💰",
+    description: "Binance ecosystem wallet",
+    downloadUrl: "https://www.binance.com/en/web3wallet",
+    thirdwebId: "com.binance",
+    installed: typeof window !== "undefined" && typeof (window as any).BinanceChain !== "undefined",
+  },
+  {
+    id: "bitget",
+    name: "Bitget Wallet",
+    chain: "ethereum",
+    icon: "🔐",
+    description: "Global crypto wallet",
+    downloadUrl: "https://web3.bitget.com",
+    thirdwebId: "com.bitget.web3",
+    installed: typeof window !== "undefined" && typeof (window as any).bitkeep !== "undefined",
+  },
+  {
+    id: "safepal",
+    name: "SafePal",
+    chain: "ethereum",
+    icon: "🛡️",
+    description: "Hardware and software wallet",
+    downloadUrl: "https://www.safepal.com/download",
+    thirdwebId: "com.safepal",
+    installed: typeof window !== "undefined" && typeof (window as any).safepal !== "undefined",
   },
   {
     id: "hashpack",
@@ -36,24 +143,17 @@ const wallets = [
     icon: "🔷",
     description: "Official Hedera wallet",
     downloadUrl: "https://www.hashpack.app/download",
-    installed: typeof window !== "undefined" && typeof (window as any).hashconnect !== "undefined",
+    thirdwebId: null,
+    installed: true, // Always show as available since we handle it separately
   },
   {
-    id: "phantom",
-    name: "Phantom",
-    chain: "solana",
-    icon: "👻",
-    description: "Leading Solana wallet",
-    downloadUrl: "https://phantom.app/download",
-    installed: typeof window !== "undefined" && typeof (window as any).solana !== "undefined",
-  },
-  {
-    id: "dummy",
-    name: "Dummy Login",
-    chain: "dummy",
-    icon: "🧪",
-    description: "Test login with email",
+    id: "email",
+    name: "Email Login",
+    chain: "ethereum",
+    icon: "📧",
+    description: "Login with email verification",
     downloadUrl: null,
+    thirdwebId: null,
     installed: true,
   },
 ];
@@ -61,50 +161,71 @@ const wallets = [
 export function MultiWalletConnectButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
-  const [dummyEmail, setDummyEmail] = useState("");
+  const [email, setEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [hederaAccountId, setHederaAccountId] = useState("");
-  const [showForm, setShowForm] = useState<"dummy" | "hashpack" | null>(null);
+  const [showForm, setShowForm] = useState<"email" | "hashpack" | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { accountId, isConnected, isInitialized, connect: connectHedera, error: hederaError } = useHederaWallet();
+  
+  // ThirdWeb hooks
+  const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
+  const activeAccount = useActiveAccount();
+  const activeWallet = useActiveWallet();
+  
+  // Hedera wallet hook
+  const { 
+    accountId, 
+    isConnected: hederaConnected, 
+    isInitialized, 
+    connect: connectHedera, 
+    disconnect: disconnectHedera,
+    error: hederaError 
+  } = useHederaWallet();
 
-  const handleConnect = async (wallet: typeof wallets[number]) => {
+  // Check if any wallet is connected
+  const [isConnected, setIsConnected] = useState(false);
+
+  useEffect(() => {
+    const authToken = localStorage.getItem("authToken");
+    setIsConnected(!!(authToken || activeAccount || hederaConnected));
+  }, [activeAccount, hederaConnected]);
+
+  const handleConnect = async (wallet: WalletConfig) => {
     setConnectingWallet(wallet.id);
 
-    if (wallet.id === "dummy") {
-      setShowForm("dummy");
-      setConnectingWallet(null);
-      return;
-    }
-
-    if (wallet.id === "hashpack") {
-      if (!isInitialized) {
-        toast({
-          title: "Wallet Not Ready",
-          description: "Hedera wallet is still initializing. Please try again in a moment.",
-          variant: "destructive",
-        });
+    try {
+      if (wallet.id === "email") {
+        setShowForm("email");
         setConnectingWallet(null);
         return;
       }
 
-      if (hederaError) {
-        throw new Error(hederaError);
-      }
-
-      if (!hederaAccountId) {
-        setShowForm("hashpack");
-        setConnectingWallet(null);
-        return;
-      }
-
-      try {
-        await connectHedera(hederaAccountId);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        if (!accountId) {
-          throw new Error("Failed to get Hedera account ID");
+      if (wallet.id === "hashpack") {
+        if (!isInitialized) {
+          throw new Error("Hedera wallet is still initializing. Please try again in a moment.");
         }
+        if (hederaError) {
+          throw new Error(hederaError);
+        }
+        if (!hederaAccountId) {
+          setShowForm("hashpack");
+          setConnectingWallet(null);
+          return;
+        }
+
+        // Connect to Hedera using the custom hook
+        await connectHedera(hederaAccountId);
+        
+        // Wait for connection to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (!accountId) {
+          throw new Error("Failed to establish Hedera connection");
+        }
+
         const address = accountId;
         const chain = wallet.chain;
 
@@ -117,27 +238,28 @@ export function MultiWalletConnectButton() {
           description: `Successfully connected to ${wallet.name}`,
         });
 
+        setIsConnected(true);
         setIsOpen(false);
-        setConnectingWallet(null);
         setHederaAccountId("");
         setShowForm(null);
         router.push("/dashboard");
-      } catch (hederaErr: any) {
-        throw new Error(`Hedera connection failed: ${hederaErr.message}`);
-      }
-    } else if (wallet.id === "metamask") {
-      if (typeof (window as any).ethereum === "undefined") {
-        throw new Error("MetaMask not installed");
+        return;
       }
 
-      try {
-        const accounts = await (window as any).ethereum.request({
-          method: "eth_requestAccounts",
+      // Handle thirdweb wallets
+      if (wallet.thirdwebId) {
+        const walletInstance = createWallet(wallet.thirdwebId as any);
+        
+        const account = await connect(async () => {
+          await walletInstance.connect({ client });
+          return walletInstance;
         });
-        if (!accounts || accounts.length === 0) {
-          throw new Error("No accounts found");
+
+        if (!account) {
+          throw new Error(`Failed to connect to ${wallet.name}`);
         }
-        const address = accounts[0];
+
+        const address = account.address;
         const chain = wallet.chain;
 
         localStorage.setItem("authToken", JSON.stringify({ address, chain }));
@@ -149,78 +271,91 @@ export function MultiWalletConnectButton() {
           description: `Successfully connected to ${wallet.name}`,
         });
 
+        setIsConnected(true);
         setIsOpen(false);
-        setConnectingWallet(null);
         router.push("/dashboard");
-      } catch (ethErr: any) {
-        if (ethErr.code === 4001) {
-          throw new Error("User rejected the connection request");
-        }
-        throw new Error(`MetaMask connection failed: ${ethErr.message}`);
       }
-    } else if (wallet.id === "phantom") {
-      if (typeof (window as any).solana === "undefined") {
-        throw new Error("Phantom not installed");
-      }
-
-      try {
-        const response = await (window as any).solana.connect();
-        if (!response || !response.publicKey) {
-          throw new Error("Failed to get Solana public key");
-        }
-        const address = response.publicKey.toString();
-        const chain = wallet.chain;
-
-        localStorage.setItem("authToken", JSON.stringify({ address, chain }));
-        document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
-        localStorage.setItem("walletAddress", address);
-
-        toast({
-          title: "Wallet Connected",
-          description: `Successfully connected to ${wallet.name}`,
-        });
-
-        setIsOpen(false);
-        setConnectingWallet(null);
-        router.push("/dashboard");
-      } catch (solErr: any) {
-        if (solErr.code === 4001) {
-          throw new Error("User rejected the connection request");
-        }
-        throw new Error(`Phantom connection failed: ${solErr.message}`);
-      }
+    } catch (err: any) {
+      console.error(`Connection error for ${wallet.name}:`, err);
+      toast({
+        title: `${wallet.name} Connection Failed`,
+        description: `Failed to connect: ${err.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingWallet(null);
     }
   };
 
-  const handleDummyLogin = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setConnectingWallet("dummy");
+    setConnectingWallet("email");
 
     try {
-      if (!dummyEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dummyEmail)) {
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new Error("Please enter a valid email address");
       }
 
-      const chain = "dummy";
-      const address = dummyEmail;
+      const wallet = inAppWallet();
+
+      if (!emailSent) {
+        // Send verification code using the correct method
+        await wallet.sendVerificationEmail({
+          email,
+          client,
+        });
+        
+        setEmailSent(true);
+        toast({
+          title: "Verification Code Sent",
+          description: `Please check your email (${email}) for the verification code.`,
+        });
+        setConnectingWallet(null);
+        return;
+      }
+
+      if (!verificationCode) {
+        throw new Error("Please enter the verification code");
+      }
+
+      // Connect with verification code
+      const account = await connect(async () => {
+        await wallet.connect({
+          client,
+          strategy: "email",
+          email,
+          verificationCode,
+        });
+        return wallet;
+      });
+
+      if (!account) {
+        throw new Error("Failed to connect with email");
+      }
+
+      const address = account.address;
+      const chain = "ethereum";
 
       localStorage.setItem("authToken", JSON.stringify({ address, chain }));
       document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
       localStorage.setItem("walletAddress", address);
 
       toast({
-        title: "Dummy Login Successful",
-        description: `Logged in with ${address}`,
+        title: "Email Login Successful",
+        description: `Successfully logged in with ${email}`,
       });
 
+      setIsConnected(true);
       setIsOpen(false);
       setShowForm(null);
-      setDummyEmail("");
-      setConnectingWallet(null);
+      setEmail("");
+      setVerificationCode("");
+      setEmailSent(false);
       router.push("/dashboard");
     } catch (err: any) {
+      console.error("Email login error:", err);
       toast({
-        title: "Dummy Login Failed",
+        title: "Email Login Failed",
         description: `Failed to login: ${err.message}`,
         variant: "destructive",
       });
@@ -231,22 +366,62 @@ export function MultiWalletConnectButton() {
 
   const handleHashpackLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setConnectingWallet("hashpack");
-
-    try {
-      if (!hederaAccountId || !/^\d+\.\d+\.\d+$/.test(hederaAccountId)) {
-        throw new Error("Please enter a valid Hedera account ID (e.g., 0.0.123456)");
-      }
-
-      await handleConnect({ id: "hashpack", chain: "hedera", name: "HashPack" } as any);
-    } catch (err: any) {
+    
+    if (!hederaAccountId || !/^\d+\.\d+\.\d+$/.test(hederaAccountId)) {
       toast({
-        title: "HashPack Connection Failed",
-        description: `Failed to connect: ${err.message}`,
+        title: "Invalid Account ID",
+        description: "Please enter a valid Hedera account ID (e.g., 0.0.123456)",
         variant: "destructive",
       });
-    } finally {
-      setConnectingWallet(null);
+      return;
+    }
+
+    await handleConnect({ 
+      id: "hashpack", 
+      chain: "hedera", 
+      name: "HashPack",
+      thirdwebId: null,
+      icon: "🔷",
+      description: "Official Hedera wallet",
+      downloadUrl: "https://www.hashpack.app/download",
+      installed: true
+    });
+  };
+
+  const handleSignOut = async () => {
+    try {
+      // Disconnect thirdweb wallets
+      if (activeWallet) {
+        await disconnect(activeWallet);
+      }
+
+      // Disconnect Hedera wallet
+      if (hederaConnected) {
+        await disconnectHedera();
+      }
+
+      // Clear all stored data
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("walletAddress");
+      localStorage.removeItem("hedera_wallet_account");
+      localStorage.removeItem("hedera_wallet_connected");
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+      setIsConnected(false);
+      
+      toast({
+        title: "Signed Out",
+        description: "You have been successfully signed out.",
+      });
+      
+      router.push("/");
+    } catch (err: any) {
+      console.error("Sign out error:", err);
+      toast({
+        title: "Sign Out Failed",
+        description: `Failed to sign out: ${err.message}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -258,166 +433,239 @@ export function MultiWalletConnectButton() {
         return "bg-purple-500";
       case "solana":
         return "bg-green-500";
-      case "dummy":
-        return "bg-gray-500";
+      case "polygon":
+        return "bg-violet-500";
+      case "base":
+        return "bg-blue-600";
       default:
         return "bg-gray-500";
     }
   };
 
+  const resetForms = () => {
+    setShowForm(null);
+    setEmail("");
+    setVerificationCode("");
+    setHederaAccountId("");
+    setEmailSent(false);
+    setConnectingWallet(null);
+  };
+
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        setIsOpen(open);
-        if (!open) setShowForm(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button className="w-full">
-          <Wallet className="h-4 w-4 mr-2" />
-          Connect Wallet
+    <div>
+      {isConnected ? (
+        <Button onClick={handleSignOut} variant="outline" className="flex items-center gap-2">
+          <LogOut className="h-4 w-4" />
+          Sign Out
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="font-heading">Connect Your Wallet</DialogTitle>
-          <DialogDescription>
-            Choose a wallet or use email for testing with Dummy Login.
-          </DialogDescription>
-        </DialogHeader>
+      ) : (
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) resetForms();
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button className="w-full">
+              <Wallet className="h-4 w-4 mr-2" />
+              Connect Wallet
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Connect Your Wallet</DialogTitle>
+              <DialogDescription>
+                Choose from over 10 supported wallets or use email for secure authentication.
+              </DialogDescription>
+            </DialogHeader>
 
-        {showForm === "dummy" ? (
-          <form onSubmit={handleDummyLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="dummy-email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="dummy-email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={dummyEmail}
-                  onChange={(e) => setDummyEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={connectingWallet === "dummy"}>
-              {connectingWallet === "dummy" ? "Logging in..." : "Login with Email"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowForm(null)}
-            >
-              Back to Wallet Selection
-            </Button>
-          </form>
-        ) : showForm === "hashpack" ? (
-          <form onSubmit={handleHashpackLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="hedera-account">Hedera Account ID</Label>
-              <div className="relative">
-                <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="hedera-account"
-                  placeholder="e.g., 0.0.123456"
-                  value={hederaAccountId}
-                  onChange={(e) => setHederaAccountId(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={connectingWallet === "hashpack"}>
-              {connectingWallet === "hashpack" ? "Connecting..." : "Connect HashPack"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowForm(null)}
-            >
-              Back to Wallet Selection
-            </Button>
-          </form>
-        ) : (
-          <div className="grid gap-3 max-h-96 overflow-y-auto">
-            {wallets.map((wallet) => (
-              <Card
-                key={wallet.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-2xl">{wallet.icon}</div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{wallet.name}</h3>
-                          <div
-                            className={`w-2 h-2 rounded-full ${getChainColor(wallet.chain)}`}
-                          />
-                          <Badge variant="outline" className="text-xs">
-                            {wallet.chain}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{wallet.description}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      {wallet.installed ? (
-                        <Button
-                          onClick={() => handleConnect(wallet)}
-                          disabled={connectingWallet === wallet.id}
-                          size="sm"
-                        >
-                          {connectingWallet === wallet.id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              Connecting...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Connect
-                            </>
-                          )}
-                        </Button>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <AlertCircle className="h-4 w-4 text-orange-500" />
-                          <Button variant="outline" size="sm" asChild>
-                            <a
-                              href={wallet.downloadUrl ?? "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              Install
-                            </a>
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+            {showForm === "email" ? (
+              <form onSubmit={handleEmailLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                      disabled={emailSent}
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                </div>
+                
+                {emailSent && (
+                  <div className="space-y-2">
+                    <Label htmlFor="verification-code">Verification Code</Label>
+                    <Input
+                      id="verification-code"
+                      placeholder="Enter 6-digit code from email"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      maxLength={6}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Check your email for the verification code. It may take a few minutes to arrive.
+                    </p>
+                  </div>
+                )}
 
-        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground">
-            <strong>Security Notice:</strong> Only connect wallets from official
-            sources. Modred will never ask for your private keys or seed phrases.
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={resetForms}
+                    disabled={connectingWallet === "email"}
+                  >
+                    Back
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1" 
+                    disabled={connectingWallet === "email" || (!emailSent && !email) || (emailSent && !verificationCode)}
+                  >
+                    {connectingWallet === "email" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {emailSent ? "Verifying..." : "Sending..."}
+                      </>
+                    ) : emailSent ? (
+                      "Verify & Connect"
+                    ) : (
+                      "Send Verification Code"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            ) : showForm === "hashpack" ? (
+              <form onSubmit={handleHashpackLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="hedera-account">Hedera Account ID</Label>
+                  <div className="relative">
+                    <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="hedera-account"
+                      placeholder="e.g., 0.0.123456"
+                      value={hederaAccountId}
+                      onChange={(e) => setHederaAccountId(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter your Hedera account ID. You can find this in your HashPack wallet.
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={resetForms}
+                    disabled={connectingWallet === "hashpack"}
+                  >
+                    Back
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1" 
+                    disabled={connectingWallet === "hashpack" || !hederaAccountId}
+                  >
+                    {connectingWallet === "hashpack" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      "Connect HashPack"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="grid gap-3 max-h-96 overflow-y-auto">
+                {wallets.map((wallet) => (
+                  <Card
+                    key={wallet.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="text-2xl">{wallet.icon}</div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">{wallet.name}</h3>
+                              <div
+                                className={`w-2 h-2 rounded-full ${getChainColor(wallet.chain)}`}
+                              />
+                              <Badge variant="outline" className="text-xs">
+                                {wallet.chain}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{wallet.description}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {wallet.installed || wallet.id === "email" || wallet.id === "hashpack" ? (
+                            <Button
+                              onClick={() => handleConnect(wallet)}
+                              disabled={connectingWallet === wallet.id}
+                              size="sm"
+                            >
+                              {connectingWallet === wallet.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  Connecting...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Connect
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <AlertCircle className="h-4 w-4 text-orange-500" />
+                              <Button variant="outline" size="sm" asChild>
+                                <a
+                                  href={wallet.downloadUrl ?? "#"}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  Install
+                                </a>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                <strong>Security Notice:</strong> Only connect wallets from official sources. 
+                Modred will never ask for your private keys or seed phrases.
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 }

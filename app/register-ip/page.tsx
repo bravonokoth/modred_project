@@ -13,7 +13,7 @@ export default function RegisterIPPage() {
   const router = useRouter()
 
   const handleBack = () => {
-    router.push("/dashboard")
+    router.push("/dashboard");
   }
 
   return (

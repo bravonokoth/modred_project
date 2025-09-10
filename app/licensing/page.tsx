@@ -30,7 +30,7 @@ export default function LicensingPage() {
   const router = useRouter();
 
   const handleBack = () => {
-    router.push("/dashboard"); // Navigate to dashboard
+    router.push("/dashboard");
   };
 
   return (

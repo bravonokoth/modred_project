@@ -1,27 +1,41 @@
 import { AuthGuard } from "@/components/wallet/auth-guard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { IPRegistrationForm } from "@/app/(dashboard)/ip-registration/components/IPRegistrationForm";
 import { IPRegistrationList } from "@/app/(dashboard)/ip-registration/components/IPRegistrationList";
-import { FileText, Shield, Clock, CheckCircle } from "lucide-react";
+import { FileText, Shield, Clock, CheckCircle, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function IPRegistrationPage() {
+  const router = useRouter();
+
+  const handleBack = () => {
+    router.push("/dashboard");
+  };
+
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background">
         <div className="border-b border-border bg-card/50 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="text-center">
-              <Badge variant="secondary" className="mb-4">
-                <FileText className="h-3 w-3 mr-1" />
-                IP Registration System
-              </Badge>
-              <h1 className="font-heading font-bold text-3xl md:text-4xl mb-2">
-                Register Your Intellectual Property
-              </h1>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Secure your creative works with immutable blockchain records and comprehensive legal protection
-              </p>
+            <div className="flex items-center justify-between">
+              <div className="text-center flex-1">
+                <Badge variant="secondary" className="mb-4">
+                  <FileText className="h-3 w-3 mr-1" />
+                  IP Registration System
+                </Badge>
+                <h1 className="font-heading font-bold text-3xl md:text-4xl mb-2">
+                  Register Your Intellectual Property
+                </h1>
+                <p className="text-muted-foreground max-w-2xl mx-auto">
+                  Secure your creative works with immutable blockchain records and comprehensive legal protection
+                </p>
+              </div>
+              <Button variant="ghost" onClick={handleBack}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
             </div>
           </div>
         </div>

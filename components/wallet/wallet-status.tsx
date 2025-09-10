@@ -11,6 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveAccount, useDisconnect } from "thirdweb/react";
+import { useHederaWallet } from "./hedera-wallet-provider";
 import { Wallet, Copy, ExternalLink, LogOut } from "lucide-react";
 
 interface WalletInfo {
@@ -23,6 +25,9 @@ export function WalletStatus() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const activeAccount = useActiveAccount();
+  const { disconnect: disconnectThirdweb } = useDisconnect();
+  const { accountId: hederaAccountId, isConnected: hederaConnected, disconnect: disconnectHedera } = useHederaWallet();
 
   useEffect(() => {
     // Check for stored wallet info
@@ -35,8 +40,15 @@ export function WalletStatus() {
         console.error("Failed to parse auth token:", error);
       }
     }
+    
+    // Also check thirdweb and hedera connections
+    if (activeAccount || hederaConnected) {
+      const address = activeAccount?.address || hederaAccountId || "";
+      const chain = activeAccount ? "ethereum" : "hedera";
+      setWalletInfo({ address, chain });
+    }
     setIsLoading(false);
-  }, []);
+  }, [activeAccount, hederaConnected, hederaAccountId]);
 
   const formatAddress = (address: string, chain: string) => {
     if (chain === "dummy") {
@@ -96,16 +108,41 @@ export function WalletStatus() {
     window.open(explorerUrl, "_blank");
   };
 
-  const handleDisconnect = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("walletAddress");
-    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    setWalletInfo(null);
-    toast({
-      title: "Wallet Disconnected",
-      description: "You have been logged out",
-    });
-    router.push("/");
+  const handleDisconnect = async () => {
+    try {
+      // Disconnect thirdweb wallets
+      if (activeAccount) {
+        await disconnectThirdweb();
+      }
+
+      // Disconnect Hedera wallet
+      if (hederaConnected) {
+        await disconnectHedera();
+      }
+
+      // Clear all stored data
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("walletAddress");
+      localStorage.removeItem("hedera_wallet_account");
+      localStorage.removeItem("hedera_wallet_connected");
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      
+      setWalletInfo(null);
+      
+      toast({
+        title: "Wallet Disconnected",
+        description: "You have been logged out",
+      });
+      
+      router.push("/");
+    } catch (err: any) {
+      console.error("Disconnect error:", err);
+      toast({
+        title: "Disconnect Failed",
+        description: `Failed to disconnect: ${err.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {

@@ -82,7 +82,7 @@ export function DashboardNav() {
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden">
-                  <Menu className="h-5 w-5" />
+                  Home
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">

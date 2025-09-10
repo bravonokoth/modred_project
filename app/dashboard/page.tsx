@@ -15,22 +15,31 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      if (window.ethereum) {
-        await window.ethereum.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] });
-      }
+      // Clear all stored data
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("hedera_wallet_account");
       localStorage.removeItem("hedera_wallet_connected");
       localStorage.removeItem("authToken");
       document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out",
+      });
+      
       router.push("/");
     } catch (error) {
       console.error("Logout failed:", error);
+      toast({
+        title: "Logout Failed", 
+        description: "There was an error logging out",
+        variant: "destructive",
+      });
     }
   };
 
   const handleBack = () => {
-    router.back();
+    router.push("/");
   };
 
   return (
