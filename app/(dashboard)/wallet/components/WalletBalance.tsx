@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePaymentWallet } from "@/components/wallet/payment-wallet-provider"
 import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react"
+import { multiChainService } from "@/lib/blockchain/multi-chain"
 
 // Mock balance data
 const mockBalances = {
@@ -66,7 +67,23 @@ export function WalletBalance() {
   const [selectedChain, setSelectedChain] = useState("ethereum")
   const [isRefreshing, setIsRefreshing] = useState(false)
   const { balance: hostedBalance } = usePaymentWallet()
+  const [hederaBalance, setHederaBalance] = useState<any>(null)
 
+  useEffect(() => {
+    // Check if Hedera is connected and get balance
+    const hederaAccountId = localStorage.getItem("hedera_account_id")
+    if (hederaAccountId) {
+      const fetchHederaBalance = async () => {
+        try {
+          const balance = await multiChainService.getBalance("hedera", hederaAccountId)
+          setHederaBalance(balance)
+        } catch (error) {
+          console.error("Failed to fetch Hedera balance:", error)
+        }
+      }
+      fetchHederaBalance()
+    }
+  }, [])
   const refreshBalances = async () => {
     setIsRefreshing(true)
     // Simulate API call
@@ -79,7 +96,7 @@ export function WalletBalance() {
       const nativeValue = chain.native.usdValue
       const tokenValue = chain.tokens.reduce((sum, token) => sum + token.usdValue, 0)
       return total + nativeValue + tokenValue
-    }, 0)
+    }, 0) + (hederaBalance?.native?.usdValue || 0)
   }
 
   return (
@@ -118,11 +135,50 @@ export function WalletBalance() {
         <Tabs value={selectedChain} onValueChange={setSelectedChain}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="ethereum">Ethereum</TabsTrigger>
-            <TabsTrigger value="hedera">Hedera</TabsTrigger>
+            <TabsTrigger value="hedera">
+              Hedera
+              {localStorage.getItem("hedera_account_id") && (
+                <div className="ml-1 w-2 h-2 bg-green-500 rounded-full" />
+              )}
+            </TabsTrigger>
             <TabsTrigger value="solana">Solana</TabsTrigger>
           </TabsList>
 
-          {Object.entries(mockBalances).map(([chain, data]) => (
+          <TabsContent value="hedera" className="space-y-4">
+            {hederaBalance ? (
+              <div className="p-4 border border-border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-purple-500" />
+                    <span className="font-medium">{hederaBalance.native.symbol}</span>
+                  </div>
+                  <Badge variant="secondary">Native</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-semibold">{hederaBalance.native.amount.toFixed(3)} {hederaBalance.native.symbol}</p>
+                    <p className="text-sm text-muted-foreground">${hederaBalance.native.usdValue.toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      <ArrowUpRight className="h-4 w-4 mr-1" />
+                      Send
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <ArrowDownLeft className="h-4 w-4 mr-1" />
+                      Receive
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Connect your HashPack wallet to view Hedera balance</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {Object.entries(mockBalances).filter(([chain]) => chain !== "hedera").map(([chain, data]) => (
             <TabsContent key={chain} value={chain} className="space-y-4">
               {/* Native Token */}
               <div className="p-4 border border-border rounded-lg">

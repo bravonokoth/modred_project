@@ -4,31 +4,46 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MultiWalletConnectButton } from "@/components/wallet/multi-wallet-connect-button"
 import { Wallet, Shield, CheckCircle, AlertCircle } from "lucide-react"
+import { useActiveAccount } from "thirdweb/react"
+import { useEffect, useState } from "react"
 
 // Mock connected wallets data
-const mockConnectedWallets = [
-  {
-    id: "1",
-    name: "MetaMask",
-    chain: "Ethereum",
-    address: "0x1234567890123456789012345678901234567890",
-    balance: "2.456 ETH",
-    status: "connected",
-  },
-  {
-    id: "2", 
-    name: "HashPack",
-    chain: "Hedera",
-    address: "0.0.123456",
-    balance: "1,250 HBAR",
-    status: "connected",
-  },
-]
 
 export function WalletConnect() {
-  const [connectedWallets, setConnectedWallets] = useState(mockConnectedWallets)
+  const [connectedWallets, setConnectedWallets] = useState<any[]>([])
+  const activeAccount = useActiveAccount()
+
+  useEffect(() => {
+    const wallets = []
+    
+    // Check for thirdweb connection
+    if (activeAccount) {
+      wallets.push({
+        id: "thirdweb",
+        name: "Connected Wallet",
+        chain: "Ethereum",
+        address: activeAccount.address,
+        balance: "Loading...",
+        status: "connected",
+      })
+    }
+    
+    // Check for Hedera connection
+    const hederaAccountId = localStorage.getItem("hedera_account_id")
+    if (hederaAccountId) {
+      wallets.push({
+        id: "hedera",
+        name: "HashPack",
+        chain: "Hedera",
+        address: hederaAccountId,
+        balance: "Loading...",
+        status: "connected",
+      })
+    }
+    
+    setConnectedWallets(wallets)
+  }, [activeAccount])
 
   const formatAddress = (address: string, chain: string) => {
     if (chain === "Hedera") {
@@ -97,19 +112,10 @@ export function WalletConnect() {
             <Wallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-heading font-semibold text-lg mb-2">No Wallets Connected</h3>
             <p className="text-muted-foreground mb-4">
-              Connect your first wallet to start managing your IP assets on the blockchain.
+              Use the wallet button in the navigation to connect your wallets.
             </p>
           </div>
         )}
-
-        {/* Connect New Wallet */}
-        <div className="border-t pt-4">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-medium">Connect Additional Wallet</h4>
-            <Badge variant="secondary">Multi-Chain Support</Badge>
-          </div>
-          <MultiWalletConnectButton />
-        </div>
 
         {/* Security Notice */}
         <div className="bg-muted/50 p-4 rounded-lg">
