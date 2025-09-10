@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { usePaymentWallet } from "./payment-wallet-provider";
 import { useActiveAccount, useActiveWallet, useDisconnect } from "thirdweb/react";
-import { useHederaWallet } from "./hedera-wallet-provider";
+import { multiChainService } from "@/lib/blockchain/multi-chain";
 import { Wallet, Copy, ExternalLink, LogOut, DollarSign } from "lucide-react";
 
 interface WalletInfo {
@@ -31,7 +31,6 @@ export function EnhancedWalletStatus() {
   const activeAccount = useActiveAccount();
   const activeWallet = useActiveWallet();
   const { disconnect: disconnectThirdweb } = useDisconnect();
-  const { accountId: hederaAccountId, isConnected: hederaConnected, disconnect: disconnectHedera } = useHederaWallet();
 
   useEffect(() => {
     setIsLoading(true);
@@ -53,7 +52,8 @@ export function EnhancedWalletStatus() {
     }
 
     // Override with active wallet connections
-    if (hederaConnected && hederaAccountId) {
+    const hederaAccountId = localStorage.getItem("hedera_account_id");
+    if (hederaAccountId) {
       address = hederaAccountId;
       chain = "hedera";
     } else if (activeAccount?.address) {
@@ -69,7 +69,7 @@ export function EnhancedWalletStatus() {
     }
 
     setIsLoading(false);
-  }, [activeAccount, hederaConnected, hederaAccountId]);
+  }, [activeAccount]);
 
   const formatAddress = (address?: string | null, chain?: string): string => {
     if (!address) return "Not connected";
@@ -138,9 +138,13 @@ export function EnhancedWalletStatus() {
         await disconnectThirdweb(activeWallet);
       }
 
-      // Disconnect Hedera wallet
-      if (hederaConnected) {
-        await disconnectHedera();
+      // Disconnect Hedera if connected
+      const hederaAccountId = localStorage.getItem("hedera_account_id");
+      if (hederaAccountId) {
+        const hederaService = multiChainService.getService("hedera");
+        if (hederaService) {
+          await hederaService.disconnect();
+        }
       }
 
       // Clear all stored data
@@ -148,13 +152,20 @@ export function EnhancedWalletStatus() {
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("hedera_wallet_account");
       localStorage.removeItem("hedera_wallet_connected");
+      localStorage.removeItem("hedera_account_id");
+      localStorage.removeItem("hedera_topic");
+      
+      // Clear payment wallet data
+      localStorage.removeItem("payment_wallet_balance");
+      localStorage.removeItem("payment_wallet_transactions");
+      
       document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
       setWalletInfo(null);
 
       toast({
         title: "Wallet Disconnected",
-        description: "You have been logged out",
+        description: "All wallet connections cleared. You will need to reconnect.",
       });
 
       router.push("/");

@@ -9,22 +9,49 @@ import { WalletBalanceCard } from "@/components/wallet/wallet-balance-card";
 import { FileText, Scale, Shield, DollarSign, Plus, TrendingUp, LogOut, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { useActiveWallet, useDisconnect } from "thirdweb/react";
+import { multiChainService } from "@/lib/blockchain/multi-chain";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const activeWallet = useActiveWallet();
+  const { disconnect: disconnectThirdweb } = useDisconnect();
 
   const handleLogout = async () => {
     try {
+      // Disconnect thirdweb wallets
+      if (activeWallet) {
+        await disconnectThirdweb(activeWallet);
+      }
+
+      // Disconnect Hedera if connected
+      const hederaAccountId = localStorage.getItem("hedera_account_id");
+      if (hederaAccountId) {
+        const hederaService = multiChainService.getService("hedera");
+        if (hederaService) {
+          await hederaService.disconnect();
+        }
+      }
+
       // Clear all stored data
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("hedera_wallet_account");
       localStorage.removeItem("hedera_wallet_connected");
+      localStorage.removeItem("hedera_account_id");
+      localStorage.removeItem("hedera_topic");
       localStorage.removeItem("authToken");
+      
+      // Clear payment wallet data
+      localStorage.removeItem("payment_wallet_balance");
+      localStorage.removeItem("payment_wallet_transactions");
+      
       document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       
       toast({
         title: "Logged Out",
-        description: "You have been successfully logged out",
+        description: "All sessions cleared. You will need to reconnect your wallet.",
       });
       
       router.push("/");

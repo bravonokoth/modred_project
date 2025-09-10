@@ -19,8 +19,8 @@ import { Wallet, Download, CheckCircle, AlertCircle, Mail, Loader2, LogOut } fro
 import { useRouter } from "next/navigation";
 import { createWallet, inAppWallet } from "thirdweb/wallets";
 import { useConnect, useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react";
-import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
 import { client, supportedChains } from "@/lib/thirdweb";
+import { multiChainService } from "@/lib/blockchain/multi-chain";
 
 // Define wallet types with proper thirdweb IDs
 interface WalletConfig {
@@ -144,7 +144,7 @@ const wallets: WalletConfig[] = [
     description: "Official Hedera wallet",
     downloadUrl: "https://www.hashpack.app/download",
     thirdwebId: null,
-    installed: true, // Always show as available since we handle it separately
+    installed: typeof window !== "undefined" && typeof (window as any).hashconnect !== "undefined",
   },
   {
     id: "email",
@@ -163,8 +163,7 @@ export function MultiWalletConnectButton() {
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
-  const [hederaAccountId, setHederaAccountId] = useState("");
-  const [showForm, setShowForm] = useState<"email" | "hashpack" | null>(null);
+  const [showForm, setShowForm] = useState<"email" | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -175,23 +174,13 @@ export function MultiWalletConnectButton() {
   const activeAccount = useActiveAccount();
   const activeWallet = useActiveWallet();
   
-  // Hedera wallet hook
-  const { 
-    accountId, 
-    isConnected: hederaConnected, 
-    isInitialized, 
-    connect: connectHedera, 
-    disconnect: disconnectHedera,
-    error: hederaError 
-  } = useHederaWallet();
-
   // Check if any wallet is connected
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     const authToken = localStorage.getItem("authToken");
-    setIsConnected(!!(authToken || activeAccount || hederaConnected));
-  }, [activeAccount, hederaConnected]);
+    setIsConnected(!!(authToken || activeAccount));
+  }, [activeAccount]);
 
   const handleConnect = async (wallet: WalletConfig) => {
     setConnectingWallet(wallet.id);
@@ -204,29 +193,13 @@ export function MultiWalletConnectButton() {
       }
 
       if (wallet.id === "hashpack") {
-        if (!isInitialized) {
-          throw new Error("Hedera wallet is still initializing. Please try again in a moment.");
-        }
-        if (hederaError) {
-          throw new Error(hederaError);
-        }
-        if (!hederaAccountId) {
-          setShowForm("hashpack");
-          setConnectingWallet(null);
-          return;
+        // Use multiChainService for Hedera connection
+        const address = await multiChainService.connect("hedera");
+        
+        if (!address) {
+          throw new Error("Failed to connect to HashPack wallet");
         }
 
-        // Connect to Hedera using the custom hook
-        await connectHedera(hederaAccountId);
-        
-        // Wait for connection to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        if (!accountId) {
-          throw new Error("Failed to establish Hedera connection");
-        }
-
-        const address = accountId;
         const chain = wallet.chain;
 
         localStorage.setItem("authToken", JSON.stringify({ address, chain }));
@@ -240,7 +213,6 @@ export function MultiWalletConnectButton() {
 
         setIsConnected(true);
         setIsOpen(false);
-        setHederaAccountId("");
         setShowForm(null);
         router.push("/dashboard");
         return;
@@ -395,11 +367,6 @@ export function MultiWalletConnectButton() {
         await disconnect(activeWallet);
       }
 
-      // Disconnect Hedera wallet
-      if (hederaConnected) {
-        await disconnectHedera();
-      }
-
       // Clear all stored data
       localStorage.removeItem("authToken");
       localStorage.removeItem("walletAddress");
@@ -446,7 +413,6 @@ export function MultiWalletConnectButton() {
     setShowForm(null);
     setEmail("");
     setVerificationCode("");
-    setHederaAccountId("");
     setEmailSent(false);
     setConnectingWallet(null);
   };
@@ -540,52 +506,6 @@ export function MultiWalletConnectButton() {
                       "Verify & Connect"
                     ) : (
                       "Send Verification Code"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            ) : showForm === "hashpack" ? (
-              <form onSubmit={handleHashpackLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="hedera-account">Hedera Account ID</Label>
-                  <div className="relative">
-                    <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="hedera-account"
-                      placeholder="e.g., 0.0.123456"
-                      value={hederaAccountId}
-                      onChange={(e) => setHederaAccountId(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Enter your Hedera account ID. You can find this in your HashPack wallet.
-                  </p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={resetForms}
-                    disabled={connectingWallet === "hashpack"}
-                  >
-                    Back
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    className="flex-1" 
-                    disabled={connectingWallet === "hashpack" || !hederaAccountId}
-                  >
-                    {connectingWallet === "hashpack" ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      "Connect HashPack"
                     )}
                   </Button>
                 </div>
