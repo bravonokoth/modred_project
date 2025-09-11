@@ -1,17 +1,29 @@
-"use client";
+import { HashConnect, SessionData } from "hashconnect";
+import { LedgerId, AccountId, TokenId, TransferTransaction, TokenAssociateTransaction, Client, AccountBalanceQuery } from "@hashgraph/sdk";
+import { MirrorNodeClient } from "./mirrorNodeClient";
 
-import { HashConnect, HashConnectConnectionState, SessionData } from "hashconnect";
-import { LedgerId } from "@hashgraph/sdk";
+interface Transaction {
+  id: string;
+  type: "deposit" | "withdrawal";
+  description: string;
+  amount: number;
+  status: "completed" | "pending";
+  timestamp: Date;
+  unit?: string;
+}
 
 export class HederaService {
   private hashConnect: HashConnect | null = null;
   private isInitialized = false;
   private pairingData: SessionData | null = null;
+  private mirrorNodeClient: MirrorNodeClient;
 
   constructor() {
     if (typeof window !== "undefined") {
       this.initializeHashConnect();
     }
+    const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet";
+    this.mirrorNodeClient = new MirrorNodeClient(network as 'testnet' | 'mainnet');
   }
 
   private async initializeHashConnect() {
@@ -29,7 +41,6 @@ export class HederaService {
       const ledgerId = LedgerId.fromString(network);
       this.hashConnect = new HashConnect(ledgerId, projectId, appMetadata, true);
 
-      // Set up event listeners
       this.hashConnect.pairingEvent.on((newPairing) => {
         this.pairingData = newPairing;
         console.log("HashConnect paired:", newPairing);
@@ -54,143 +65,140 @@ export class HederaService {
       throw new Error("HashConnect not initialized");
     }
 
-    try {
-      // Clear any existing sessions
-      await this.hashConnect.clearConnectionsAndData();
-      
-      // Open pairing modal - this will trigger the HashPack wallet popup
-      await this.hashConnect.openPairingModal();
+    await this.hashConnect.clearConnectionsAndData();
+    await this.hashConnect.openPairingModal();
 
-      // Wait for pairing to complete
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Connection timeout - please try again"));
-        }, 60000); // 60 second timeout
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Connection timeout - please try again"));
+      }, 60000);
 
-        this.hashConnect!.pairingEvent.once((pairingData) => {
-          clearTimeout(timeout);
-          if (pairingData.accountIds && pairingData.accountIds.length > 0) {
-            const accountId = pairingData.accountIds[0];
-            
-            // Store connection data
-            localStorage.setItem("hedera_account_id", accountId);
-            localStorage.setItem("hedera_topic", pairingData.topic);
-            
-            resolve(accountId);
-          } else {
-            reject(new Error("No account ID received from HashPack"));
-          }
-        });
+      this.hashConnect!.pairingEvent.once((pairingData) => {
+        clearTimeout(timeout);
+        if (pairingData.accountIds && pairingData.accountIds.length > 0) {
+          const accountId = pairingData.accountIds[0];
+          localStorage.setItem("hedera_account_id", accountId);
+          localStorage.setItem("hedera_topic", pairingData.topic);
+          localStorage.setItem("authToken", JSON.stringify({ address: accountId, chain: "hedera" }));
+          document.cookie = `auth-token=${accountId}; path=/; max-age=86400`;
+          resolve(accountId);
+        } else {
+          reject(new Error("No account ID received from HashPack"));
+        }
       });
-    } catch (error) {
-      console.error("HashPack connection failed:", error);
-      throw new Error(`Failed to connect to HashPack: ${(error as Error).message}`);
-    }
+    });
   }
 
   async disconnect(): Promise<void> {
     if (this.hashConnect) {
-      try {
-        await this.hashConnect.disconnect();
-        this.pairingData = null;
-        
-        // Clear stored data
-        localStorage.removeItem("hedera_account_id");
-        localStorage.removeItem("hedera_topic");
-        
-        console.log("HashPack disconnected successfully");
-      } catch (error) {
-        console.error("HashPack disconnect failed:", error);
-        throw new Error(`Failed to disconnect from HashPack: ${(error as Error).message}`);
-      }
+      await this.hashConnect.disconnect();
+      this.pairingData = null;
+      localStorage.removeItem("hedera_account_id");
+      localStorage.removeItem("hedera_topic");
+      localStorage.removeItem("signed_message");
+      localStorage.removeItem("authToken");
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      console.log("HashPack disconnected successfully");
     }
   }
 
   async getBalance(accountId: string) {
     try {
-      const mockBalance = Math.random() * 1000;
+      const client = Client.forName(process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet");
+      const balance = await new AccountBalanceQuery()
+        .setAccountId(AccountId.fromString(accountId))
+        .execute(client);
+      const tokenBalances = await this.mirrorNodeClient.getAccountTokenBalancesWithTokenInfo(accountId);
       return {
         native: {
           symbol: "HBAR",
-          amount: mockBalance,
-          usdValue: mockBalance * 0.07,
+          amount: balance.hbars.toBigNumber().toNumber() / 100_000_000, // Convert tinybars to HBAR
+          usdValue: 0,
         },
-        tokens: [],
+        tokens: tokenBalances,
       };
     } catch (error) {
       throw new Error(`Failed to fetch Hedera balance: ${(error as Error).message}`);
     }
   }
 
-  async sendTransaction(transaction: any) {
-    try {
-      if (!this.hashConnect || !this.pairingData) {
-        throw new Error("HashConnect not connected");
-      }
-
-      // Use HashConnect to send transaction
-      const result = await this.hashConnect.sendTransaction(
-        this.pairingData.topic,
-        transaction
-      );
-
-      return {
-        transactionId: result.transactionId || `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
-        status: "SUCCESS",
-      };
-    } catch (error) {
-      throw new Error(`Hedera transaction failed: ${(error as Error).message}`);
+  async associateToken(tokenId: string, accountId: string): Promise<string> {
+    if (!this.hashConnect || !this.pairingData) {
+      throw new Error("HashConnect not connected");
     }
+
+    const transaction = new TokenAssociateTransaction()
+      .setAccountId(AccountId.fromString(accountId))
+      .setTokenIds([TokenId.fromString(tokenId)]);
+
+    const transactionBytes = await transaction.toBytes();
+    const result = await this.hashConnect.sendTransaction(this.pairingData.topic, {
+      topic: this.pairingData.topic,
+      byteArray: transactionBytes,
+      metadata: {
+        accountToSign: accountId,
+      },
+    });
+
+    return result.transactionId || `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`;
   }
 
-  async mintIPNFT(ipData: any) {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const tokenId = `0.0.${Math.floor(Math.random() * 999999)}`;
-      return {
-        tokenId,
-        transactionId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
-        contractAddress: `0.0.${Math.floor(Math.random() * 999999)}`,
-        status: "SUCCESS",
-        metadata: {
-          name: ipData.title,
-          description: ipData.description,
-          type: ipData.type,
-          category: ipData.category,
-        },
-      };
-    } catch (error) {
-      throw new Error(`Failed to mint IP NFT on Hedera: ${(error as Error).message}`);
+  async transferToken(tokenId: string, fromAccountId: string, toAccountId: string, amountOrSerial: number): Promise<string> {
+    if (!this.hashConnect || !this.pairingData) {
+      throw new Error("HashConnect not connected");
     }
-  }
 
-  async transferIPNFT(tokenId: string, from: string, to: string) {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return {
-        transactionId: `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`,
-        status: "SUCCESS",
-      };
-    } catch (error) {
-      throw new Error(`Failed to transfer IP NFT on Hedera: ${(error as Error).message}`);
+    const isAssociated = await this.mirrorNodeClient.isAssociated(toAccountId, tokenId);
+    if (!isAssociated) {
+      throw new Error("Receiver account is not associated with the token");
     }
+
+    const transaction = new TransferTransaction()
+      .addTokenTransfer(TokenId.fromString(tokenId), AccountId.fromString(fromAccountId), -amountOrSerial)
+      .addTokenTransfer(TokenId.fromString(tokenId), AccountId.fromString(toAccountId), amountOrSerial);
+
+    const transactionBytes = await transaction.toBytes();
+    const result = await this.hashConnect.sendTransaction(this.pairingData.topic, {
+      topic: this.pairingData.topic,
+      byteArray: transactionBytes,
+      metadata: {
+        accountToSign: fromAccountId,
+      },
+    });
+
+    return result.transactionId || `0.0.${Math.floor(Math.random() * 999999)}@${Date.now()}.${Math.floor(Math.random() * 999999999)}`;
   }
 
   async signMessage(message: string, accountId: string): Promise<string> {
+    if (!this.hashConnect || !this.pairingData) {
+      throw new Error("HashConnect not connected");
+    }
+
+    const result = await this.hashConnect.signMessage(this.pairingData.topic, accountId, message);
+    return result.signature;
+  }
+
+  async getTransactionHistory(accountId: string): Promise<Transaction[]> {
     try {
-      if (!this.hashConnect || !this.pairingData) {
-        throw new Error("HashConnect not connected");
-      }
-
-      const result = await this.hashConnect.signMessage(
-        this.pairingData.topic,
-        accountId,
-        message
+      const response = await fetch(
+        `${this.mirrorNodeClient.getUrl()}/api/v1/accounts/${accountId}/transactions?limit=10&order=desc`,
+        { method: "GET" }
       );
-
-      return result.signature;
+      const data = await response.json();
+      return data.transactions.map((tx: any) => ({
+        id: tx.transaction_id,
+        type: tx.name === "CRYPTOTRANSFER" && tx.transfers.some((t: any) => t.account === accountId && t.amount > 0)
+          ? "deposit"
+          : "withdrawal",
+        description: tx.name === "TOKENASSOCIATE" ? "IP Asset Associated" : `Transfer ${tx.name}`,
+        amount: tx.transfers?.find((t: any) => t.account === accountId)?.amount / 100_000_000 || 
+                tx.token_transfers?.[0]?.amount || 0,
+        status: tx.result === "SUCCESS" ? "completed" : "pending",
+        timestamp: new Date(tx.valid_start_timestamp * 1000),
+        unit: tx.name === "CRYPTOTRANSFER" ? "HBAR" : tx.token_transfers?.[0]?.token_id || "USD",
+      }));
     } catch (error) {
-      throw new Error(`Message signing failed: ${(error as Error).message}`);
+      throw new Error(`Failed to fetch transaction history: ${(error as Error).message}`);
     }
   }
 
@@ -210,5 +218,9 @@ export class HederaService {
 
   getAccountId(): string | null {
     return this.pairingData?.accountIds[0] || localStorage.getItem("hedera_account_id");
+  }
+
+  getUrl(): string {
+    return this.mirrorNodeClient.getUrl();
   }
 }

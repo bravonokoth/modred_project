@@ -19,8 +19,8 @@ import { Wallet, Download, CheckCircle, AlertCircle, Mail, Loader2, LogOut } fro
 import { useRouter } from "next/navigation";
 import { createWallet, inAppWallet } from "thirdweb/wallets";
 import { useConnect, useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react";
-import { client, supportedChains } from "@/lib/thirdweb";
-import { multiChainService } from "@/lib/blockchain/multi-chain";
+import { client } from "@/lib/thirdweb";
+import { HederaService } from "@/lib/blockchain/hedera/hedera-service";
 
 // Define wallet types with proper thirdweb IDs
 interface WalletConfig {
@@ -34,8 +34,21 @@ interface WalletConfig {
   installed: boolean;
 }
 
-// Define wallets with proper thirdweb wallet IDs
+// Define wallets with Hedera first and proper detection
 const wallets: WalletConfig[] = [
+  {
+    id: "hashpack",
+    name: "HashPack",
+    chain: "hedera",
+    icon: "🔷",
+    description: "Official Hedera wallet",
+    downloadUrl: "https://www.hashpack.app/download",
+    thirdwebId: null,
+    installed: typeof window !== "undefined" && 
+      (typeof (window as any).hashconnect !== "undefined" || 
+       localStorage.getItem("hashconnect") !== null ||
+       document.querySelector('meta[name="hashpack-installed"]') !== null),
+  },
   {
     id: "metamask",
     name: "MetaMask",
@@ -45,6 +58,16 @@ const wallets: WalletConfig[] = [
     downloadUrl: "https://metamask.io/download/",
     thirdwebId: "io.metamask",
     installed: typeof window !== "undefined" && typeof (window as any).ethereum !== "undefined",
+  },
+  {
+    id: "email",
+    name: "Email Login",
+    chain: "ethereum",
+    icon: "📧",
+    description: "Login with email verification",
+    downloadUrl: null,
+    thirdwebId: null,
+    installed: true,
   },
   {
     id: "trustwallet",
@@ -116,46 +139,6 @@ const wallets: WalletConfig[] = [
     thirdwebId: "com.binance",
     installed: typeof window !== "undefined" && typeof (window as any).BinanceChain !== "undefined",
   },
-  {
-    id: "bitget",
-    name: "Bitget Wallet",
-    chain: "ethereum",
-    icon: "🔐",
-    description: "Global crypto wallet",
-    downloadUrl: "https://web3.bitget.com",
-    thirdwebId: "com.bitget.web3",
-    installed: typeof window !== "undefined" && typeof (window as any).bitkeep !== "undefined",
-  },
-  {
-    id: "safepal",
-    name: "SafePal",
-    chain: "ethereum",
-    icon: "🛡️",
-    description: "Hardware and software wallet",
-    downloadUrl: "https://www.safepal.com/download",
-    thirdwebId: "com.safepal",
-    installed: typeof window !== "undefined" && typeof (window as any).safepal !== "undefined",
-  },
-  {
-    id: "hashpack",
-    name: "HashPack",
-    chain: "hedera",
-    icon: "🔷",
-    description: "Official Hedera wallet",
-    downloadUrl: "https://www.hashpack.app/download",
-    thirdwebId: null,
-    installed: typeof window !== "undefined" && typeof (window as any).hashconnect !== "undefined",
-  },
-  {
-    id: "email",
-    name: "Email Login",
-    chain: "ethereum",
-    icon: "📧",
-    description: "Login with email verification",
-    downloadUrl: null,
-    thirdwebId: null,
-    installed: true,
-  },
 ];
 
 export function MultiWalletConnectButton() {
@@ -165,6 +148,7 @@ export function MultiWalletConnectButton() {
   const [verificationCode, setVerificationCode] = useState("");
   const [showForm, setShowForm] = useState<"email" | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+  const [hederaService, setHederaService] = useState<HederaService | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   
@@ -180,6 +164,12 @@ export function MultiWalletConnectButton() {
   useEffect(() => {
     const authToken = localStorage.getItem("authToken");
     setIsConnected(!!(authToken || activeAccount));
+
+    // Initialize Hedera service
+    if (typeof window !== "undefined") {
+      const service = new HederaService();
+      setHederaService(service);
+    }
   }, [activeAccount]);
 
   const handleConnect = async (wallet: WalletConfig) => {
@@ -193,29 +183,39 @@ export function MultiWalletConnectButton() {
       }
 
       if (wallet.id === "hashpack") {
-        // Use multiChainService for Hedera connection
-        const address = await multiChainService.connect("hedera");
-        
-        if (!address) {
-          throw new Error("Failed to connect to HashPack wallet");
+        if (!hederaService) {
+          throw new Error("Hedera service not initialized");
         }
 
-        const chain = wallet.chain;
+        try {
+          console.log("Attempting to connect to HashPack...");
+          const accountId = await hederaService.connect();
+          
+          if (!accountId) {
+            throw new Error("Failed to get account ID from HashPack");
+          }
 
-        localStorage.setItem("authToken", JSON.stringify({ address, chain }));
-        document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
-        localStorage.setItem("walletAddress", address);
+          console.log("HashPack connected successfully:", accountId);
 
-        toast({
-          title: "Wallet Connected",
-          description: `Successfully connected to ${wallet.name}`,
-        });
+          const authToken = JSON.stringify({ address: accountId, chain: "hedera" });
+          localStorage.setItem("authToken", authToken);
+          document.cookie = `auth-token=${authToken}; path=/; max-age=86400`;
+          localStorage.setItem("walletAddress", accountId);
 
-        setIsConnected(true);
-        setIsOpen(false);
-        setShowForm(null);
-        router.push("/dashboard");
-        return;
+          toast({
+            title: "HashPack Connected",
+            description: `Successfully connected to HashPack with account ${accountId}`,
+          });
+
+          setIsConnected(true);
+          setIsOpen(false);
+          setShowForm(null);
+          router.push("/dashboard");
+          return;
+        } catch (hederaError) {
+          console.error("HashPack connection error:", hederaError);
+          throw new Error(`HashPack connection failed: ${(hederaError as Error).message}`);
+        }
       }
 
       // Handle thirdweb wallets
@@ -234,8 +234,9 @@ export function MultiWalletConnectButton() {
         const address = account.address;
         const chain = wallet.chain;
 
-        localStorage.setItem("authToken", JSON.stringify({ address, chain }));
-        document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
+        const authToken = JSON.stringify({ address, chain });
+        localStorage.setItem("authToken", authToken);
+        document.cookie = `auth-token=${authToken}; path=/; max-age=86400`;
         localStorage.setItem("walletAddress", address);
 
         toast({
@@ -308,8 +309,9 @@ export function MultiWalletConnectButton() {
       const address = account.address;
       const chain = "ethereum";
 
-      localStorage.setItem("authToken", JSON.stringify({ address, chain }));
-      document.cookie = `auth-token=${JSON.stringify({ address, chain })}; path=/; max-age=86400`;
+      const authToken = JSON.stringify({ address, chain });
+      localStorage.setItem("authToken", authToken);
+      document.cookie = `auth-token=${authToken}; path=/; max-age=86400`;
       localStorage.setItem("walletAddress", address);
 
       toast({
@@ -336,30 +338,6 @@ export function MultiWalletConnectButton() {
     }
   };
 
-  const handleHashpackLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!hederaAccountId || !/^\d+\.\d+\.\d+$/.test(hederaAccountId)) {
-      toast({
-        title: "Invalid Account ID",
-        description: "Please enter a valid Hedera account ID (e.g., 0.0.123456)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    await handleConnect({ 
-      id: "hashpack", 
-      chain: "hedera", 
-      name: "HashPack",
-      thirdwebId: null,
-      icon: "🔷",
-      description: "Official Hedera wallet",
-      downloadUrl: "https://www.hashpack.app/download",
-      installed: true
-    });
-  };
-
   const handleSignOut = async () => {
     try {
       // Disconnect thirdweb wallets
@@ -367,11 +345,22 @@ export function MultiWalletConnectButton() {
         await disconnect(activeWallet);
       }
 
+      // Disconnect Hedera if connected
+      if (hederaService) {
+        try {
+          await hederaService.disconnect();
+        } catch (error) {
+          console.warn("Hedera disconnect warning:", error);
+        }
+      }
+
       // Clear all stored data
       localStorage.removeItem("authToken");
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("hedera_wallet_account");
       localStorage.removeItem("hedera_wallet_connected");
+      localStorage.removeItem("hedera_account_id");
+      localStorage.removeItem("hedera_topic");
       document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
       setIsConnected(false);
@@ -417,6 +406,27 @@ export function MultiWalletConnectButton() {
     setConnectingWallet(null);
   };
 
+  // Check if HashPack is actually installed
+  const isHashPackInstalled = () => {
+    if (typeof window === "undefined") return false;
+    
+    // Check for HashPack extension
+    return !!(
+      (window as any).hashconnect ||
+      document.querySelector('meta[name="hashpack-installed"]') ||
+      localStorage.getItem("hashconnect") ||
+      (window as any).HashPack
+    );
+  };
+
+  // Update HashPack installation status
+  useEffect(() => {
+    const hashpackWallet = wallets.find(w => w.id === "hashpack");
+    if (hashpackWallet) {
+      hashpackWallet.installed = isHashPackInstalled();
+    }
+  }, []);
+
   return (
     <div>
       {isConnected ? (
@@ -442,7 +452,7 @@ export function MultiWalletConnectButton() {
             <DialogHeader>
               <DialogTitle className="font-heading">Connect Your Wallet</DialogTitle>
               <DialogDescription>
-                Choose from over 10 supported wallets or use email for secure authentication.
+                Choose from supported wallets or use email for secure authentication.
               </DialogDescription>
             </DialogHeader>
 
@@ -536,7 +546,7 @@ export function MultiWalletConnectButton() {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          {wallet.installed || wallet.id === "email" || wallet.id === "hashpack" ? (
+                          {wallet.installed || wallet.id === "email" ? (
                             <Button
                               onClick={() => handleConnect(wallet)}
                               disabled={connectingWallet === wallet.id}

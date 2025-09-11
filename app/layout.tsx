@@ -1,7 +1,7 @@
-
-
 import type React from "react";
 import type { Metadata, Viewport } from "next";
+import { ThirdwebProvider } from "@thirdweb-dev/react";
+import { Sepolia } from "@thirdweb-dev/chains";
 import { ClientWrapper } from "@/components/client-wrapper";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
@@ -54,12 +54,28 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <div className="cosmic-sky">
-          {generateElements(15, "star")}
-          {generateElements(5, "comet")}
-        </div>
-        <ClientWrapper>{children}</ClientWrapper>
-        <Toaster />
+        <ThirdwebProvider
+          activeChain={Sepolia}
+          clientId={process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID}
+          supportedWallets={[
+            "io.metamask",
+            "com.trustwallet.app",
+            "walletConnect",
+            "com.coinbase.wallet",
+            "me.rainbow",
+            "io.zerion.wallet",
+            "com.okx.wallet",
+            "com.binance",
+            "inApp" // For email login
+          ]}
+        >
+          <div className="cosmic-sky">
+            {generateElements(15, "star")}
+            {generateElements(5, "comet")}
+          </div>
+          <ClientWrapper>{children}</ClientWrapper>
+          <Toaster />
+        </ThirdwebProvider>
       </body>
     </html>
   );
