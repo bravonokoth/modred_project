@@ -105,6 +105,8 @@ export function EnhancedWalletStatus() {
     localStorage.removeItem("walletAddress");
     localStorage.removeItem("hedera_wallet_account");
     localStorage.removeItem("hedera_wallet_connected");
+    localStorage.removeItem("hedera_wallet_account");
+    localStorage.removeItem("hedera_wallet_connected");
     document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     setWalletInfo(null);
     toast({

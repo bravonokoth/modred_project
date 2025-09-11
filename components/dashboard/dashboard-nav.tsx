@@ -76,7 +76,6 @@ export function DashboardNav() {
           {/* Right Side Actions */}
           <div className="flex items-center space-x-3">
             <ThemeToggle />
-            <EnhancedWalletStatus />
             
             {/* Mobile Menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>

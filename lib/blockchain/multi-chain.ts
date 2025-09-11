@@ -141,6 +141,16 @@ export class MultiChainService {
       }
       return email;
     }
+    
+    if (chain === "hedera") {
+      // Use the HederaService for connection
+      const service = this.getService(chain);
+      if (!service) {
+        throw new Error("Hedera service not available");
+      }
+      return await service.connect();
+    }
+    
     const service = this.getService(chain);
     if (!service) {
       if (typeof window === "undefined") {

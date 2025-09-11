@@ -38,7 +38,6 @@ export default function LandingPage() {
             {/* Right side: Wallet + Toggle + Dashboard */}
             <div className="flex items-center space-x-4">
               <ThemeToggle /> {}
-              <EnhancedWalletStatus />
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
                   <Link href="/login">Login</Link>

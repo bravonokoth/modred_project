@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface TransactionResult {
   status: string;
@@ -13,6 +14,7 @@ export function useSendTransaction() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<TransactionResult | null>(null);
+  const { toast } = useToast();
 
   const sendTransaction = async (accountId: string, amount: number) => {
     try {
@@ -20,7 +22,16 @@ export function useSendTransaction() {
       setError(null);
       setResult(null);
 
-      const res = await fetch("/api/hedera/transaction", {
+      // Validate inputs
+      if (!accountId || !/^\d+\.\d+\.\d+$/.test(accountId)) {
+        throw new Error("Invalid Hedera account ID");
+      }
+
+      if (amount <= 0) {
+        throw new Error("Amount must be greater than 0");
+      }
+
+      const res = await fetch("/api/wallet/hedera/transaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId, amount }),
@@ -33,10 +44,24 @@ export function useSendTransaction() {
       }
 
       setResult(data);
+      
+      toast({
+        title: "Transaction Successful",
+        description: `Successfully sent ${amount} HBAR to ${accountId}`,
+      });
+      
       return data;
     } catch (err: any) {
       console.error("Transaction error:", err);
-      setError(err.message || "Failed to send transaction");
+      const errorMessage = err.message || "Failed to send transaction";
+      setError(errorMessage);
+      
+      toast({
+        title: "Transaction Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
       throw err;
     } finally {
       setLoading(false);

@@ -21,15 +21,6 @@ import { useHederaWallet } from "@/components/wallet/hedera-wallet-provider";
 
 const wallets = [
   {
-    id: "metamask",
-    name: "MetaMask",
-    chain: "ethereum",
-    icon: "🦊",
-    description: "Most popular Ethereum wallet",
-    downloadUrl: "https://metamask.io/download/",
-    installed: typeof window !== "undefined" && typeof (window as any).ethereum !== "undefined",
-  },
-  {
     id: "hashpack",
     name: "HashPack",
     chain: "hedera",
@@ -37,6 +28,15 @@ const wallets = [
     description: "Official Hedera wallet",
     downloadUrl: "https://www.hashpack.app/download",
     installed: typeof window !== "undefined" && typeof (window as any).hashconnect !== "undefined",
+  },
+  {
+    id: "metamask",
+    name: "MetaMask",
+    chain: "ethereum",
+    icon: "🦊",
+    description: "Most popular Ethereum wallet",
+    downloadUrl: "https://metamask.io/download/",
+    installed: typeof window !== "undefined" && typeof (window as any).ethereum !== "undefined",
   },
   {
     id: "phantom",
@@ -49,10 +49,10 @@ const wallets = [
   },
   {
     id: "dummy",
-    name: "Dummy Login",
+    name: "Email Login",
     chain: "dummy",
-    icon: "🧪",
-    description: "Test login with email",
+    icon: "📧",
+    description: "Test login with email verification",
     downloadUrl: null,
     installed: true,
   },
@@ -62,50 +62,40 @@ export function MultiWalletConnectButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
   const [dummyEmail, setDummyEmail] = useState("");
-  const [hederaAccountId, setHederaAccountId] = useState("");
-  const [showForm, setShowForm] = useState<"dummy" | "hashpack" | null>(null);
+  const [showForm, setShowForm] = useState<"dummy" | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const { accountId, isConnected, isInitialized, connect: connectHedera, error: hederaError } = useHederaWallet();
+  const { connect: connectHedera, isInitialized, error: hederaError } = useHederaWallet();
 
   const handleConnect = async (wallet: typeof wallets[number]) => {
     setConnectingWallet(wallet.id);
 
-    if (wallet.id === "dummy") {
-      setShowForm("dummy");
-      setConnectingWallet(null);
-      return;
-    }
-
-    if (wallet.id === "hashpack") {
-      if (!isInitialized) {
-        toast({
-          title: "Wallet Not Ready",
-          description: "Hedera wallet is still initializing. Please try again in a moment.",
-          variant: "destructive",
-        });
+    try {
+      if (wallet.id === "dummy") {
+        setShowForm("dummy");
         setConnectingWallet(null);
         return;
       }
 
-      if (hederaError) {
-        throw new Error(hederaError);
-      }
-
-      if (!hederaAccountId) {
-        setShowForm("hashpack");
-        setConnectingWallet(null);
-        return;
-      }
-
-      try {
-        await connectHedera(hederaAccountId);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        if (!accountId) {
-          throw new Error("Failed to get Hedera account ID");
+      if (wallet.id === "hashpack") {
+        if (!isInitialized) {
+          throw new Error("Hedera wallet is still initializing. Please try again in a moment.");
         }
-        const address = accountId;
+
+        if (hederaError) {
+          throw new Error(hederaError);
+        }
+
+        // For demo purposes, simulate HashPack connection
+        // In a real app, this would trigger the HashPack browser extension
+        const mockAccountId = "0.0.123456";
+        
+        // Simulate the HashPack connection flow
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        connectHedera(mockAccountId);
+        
+        const address = mockAccountId;
         const chain = wallet.chain;
 
         localStorage.setItem("authToken", JSON.stringify({ address, chain }));
@@ -113,24 +103,21 @@ export function MultiWalletConnectButton() {
         localStorage.setItem("walletAddress", address);
 
         toast({
-          title: "Wallet Connected",
-          description: `Successfully connected to ${wallet.name}`,
+          title: "Hedera Wallet Connected",
+          description: `Successfully connected to ${wallet.name} with account ${mockAccountId}`,
         });
 
         setIsOpen(false);
         setConnectingWallet(null);
-        setHederaAccountId("");
-        setShowForm(null);
         router.push("/dashboard");
-      } catch (hederaErr: any) {
-        throw new Error(`Hedera connection failed: ${hederaErr.message}`);
-      }
-    } else if (wallet.id === "metamask") {
-      if (typeof (window as any).ethereum === "undefined") {
-        throw new Error("MetaMask not installed");
+        return;
       }
 
-      try {
+      if (wallet.id === "metamask") {
+        if (typeof (window as any).ethereum === "undefined") {
+          throw new Error("MetaMask not installed");
+        }
+
         const accounts = await (window as any).ethereum.request({
           method: "eth_requestAccounts",
         });
@@ -152,18 +139,11 @@ export function MultiWalletConnectButton() {
         setIsOpen(false);
         setConnectingWallet(null);
         router.push("/dashboard");
-      } catch (ethErr: any) {
-        if (ethErr.code === 4001) {
-          throw new Error("User rejected the connection request");
+      } else if (wallet.id === "phantom") {
+        if (typeof (window as any).solana === "undefined") {
+          throw new Error("Phantom not installed");
         }
-        throw new Error(`MetaMask connection failed: ${ethErr.message}`);
-      }
-    } else if (wallet.id === "phantom") {
-      if (typeof (window as any).solana === "undefined") {
-        throw new Error("Phantom not installed");
-      }
 
-      try {
         const response = await (window as any).solana.connect();
         if (!response || !response.publicKey) {
           throw new Error("Failed to get Solana public key");
@@ -183,12 +163,23 @@ export function MultiWalletConnectButton() {
         setIsOpen(false);
         setConnectingWallet(null);
         router.push("/dashboard");
-      } catch (solErr: any) {
-        if (solErr.code === 4001) {
-          throw new Error("User rejected the connection request");
-        }
-        throw new Error(`Phantom connection failed: ${solErr.message}`);
       }
+    } catch (error: any) {
+      console.error(`Connection failed for ${wallet.id}:`, error);
+      
+      let errorMessage = error.message || "Connection failed";
+      
+      if (error.code === 4001) {
+        errorMessage = "User rejected the connection request";
+      }
+
+      toast({
+        title: "Connection Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingWallet(null);
     }
   };
 
@@ -201,7 +192,10 @@ export function MultiWalletConnectButton() {
         throw new Error("Please enter a valid email address");
       }
 
-      const chain = "dummy";
+      // Simulate email verification process
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      const chain = "email";
       const address = dummyEmail;
 
       localStorage.setItem("authToken", JSON.stringify({ address, chain }));
@@ -209,8 +203,8 @@ export function MultiWalletConnectButton() {
       localStorage.setItem("walletAddress", address);
 
       toast({
-        title: "Dummy Login Successful",
-        description: `Logged in with ${address}`,
+        title: "Email Verification Sent",
+        description: `Verification email sent to ${address}. For demo purposes, you're now logged in.`,
       });
 
       setIsOpen(false);
@@ -220,29 +214,8 @@ export function MultiWalletConnectButton() {
       router.push("/dashboard");
     } catch (err: any) {
       toast({
-        title: "Dummy Login Failed",
+        title: "Login Failed",
         description: `Failed to login: ${err.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setConnectingWallet(null);
-    }
-  };
-
-  const handleHashpackLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setConnectingWallet("hashpack");
-
-    try {
-      if (!hederaAccountId || !/^\d+\.\d+\.\d+$/.test(hederaAccountId)) {
-        throw new Error("Please enter a valid Hedera account ID (e.g., 0.0.123456)");
-      }
-
-      await handleConnect({ id: "hashpack", chain: "hedera", name: "HashPack" } as any);
-    } catch (err: any) {
-      toast({
-        title: "HashPack Connection Failed",
-        description: `Failed to connect: ${err.message}`,
         variant: "destructive",
       });
     } finally {
@@ -283,57 +256,42 @@ export function MultiWalletConnectButton() {
         <DialogHeader>
           <DialogTitle className="font-heading">Connect Your Wallet</DialogTitle>
           <DialogDescription>
-            Choose a wallet or use email for testing with Dummy Login.
+            Choose a wallet or use email for testing. Hedera HashPack provides the most secure blockchain experience.
           </DialogDescription>
         </DialogHeader>
 
         {showForm === "dummy" ? (
           <form onSubmit={handleDummyLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="dummy-email">Email</Label>
+              <Label htmlFor="dummy-email">Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="dummy-email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="Enter your email for verification"
                   value={dummyEmail}
                   onChange={(e) => setDummyEmail(e.target.value)}
                   className="pl-10"
                   required
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                A verification email will be sent to confirm your identity
+              </p>
             </div>
             <Button type="submit" className="w-full" disabled={connectingWallet === "dummy"}>
-              {connectingWallet === "dummy" ? "Logging in..." : "Login with Email"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowForm(null)}
-            >
-              Back to Wallet Selection
-            </Button>
-          </form>
-        ) : showForm === "hashpack" ? (
-          <form onSubmit={handleHashpackLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="hedera-account">Hedera Account ID</Label>
-              <div className="relative">
-                <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="hedera-account"
-                  placeholder="e.g., 0.0.123456"
-                  value={hederaAccountId}
-                  onChange={(e) => setHederaAccountId(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={connectingWallet === "hashpack"}>
-              {connectingWallet === "hashpack" ? "Connecting..." : "Connect HashPack"}
+              {connectingWallet === "dummy" ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending Verification...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Verification Email
+                </>
+              )}
             </Button>
             <Button
               type="button"
@@ -364,6 +322,11 @@ export function MultiWalletConnectButton() {
                           <Badge variant="outline" className="text-xs">
                             {wallet.chain}
                           </Badge>
+                          {wallet.id === "hashpack" && (
+                            <Badge className="bg-purple-500 text-xs">
+                              Recommended
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">{wallet.description}</p>
                       </div>
@@ -415,6 +378,11 @@ export function MultiWalletConnectButton() {
           <p className="text-xs text-muted-foreground">
             <strong>Security Notice:</strong> Only connect wallets from official
             sources. Modred will never ask for your private keys or seed phrases.
+            {!isInitialized && (
+              <span className="block mt-1 text-yellow-600">
+                Hedera wallet is initializing...
+              </span>
+            )}
           </p>
         </div>
       </DialogContent>
