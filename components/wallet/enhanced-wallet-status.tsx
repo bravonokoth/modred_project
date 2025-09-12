@@ -142,7 +142,7 @@ export function EnhancedWalletStatus() {
       const hederaAccountId = localStorage.getItem("hedera_account_id");
       if (hederaAccountId) {
         const hederaService = multiChainService.getService("hedera");
-        if (hederaService) {
+        if (hederaService && 'disconnect' in hederaService && typeof hederaService.disconnect === 'function') {
           await hederaService.disconnect();
         }
       }

@@ -19,6 +19,7 @@ import { Wallet, Download, CheckCircle, AlertCircle, Mail, Loader2, LogOut } fro
 import { useRouter } from "next/navigation";
 import { createWallet, inAppWallet } from "thirdweb/wallets";
 import { useConnect, useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react";
+import { preAuthenticate } from "thirdweb/wallets/in-app";
 import { client } from "@/lib/thirdweb";
 import { HederaService } from "@/lib/blockchain/hedera/hedera-service";
 
@@ -99,46 +100,6 @@ const wallets: WalletConfig[] = [
     thirdwebId: "com.coinbase.wallet",
     installed: typeof window !== "undefined" && typeof (window as any).coinbaseWalletExtension !== "undefined",
   },
-  {
-    id: "rainbow",
-    name: "Rainbow",
-    chain: "ethereum",
-    icon: "🌈",
-    description: "Beautiful Ethereum wallet",
-    downloadUrl: "https://rainbow.me/download",
-    thirdwebId: "me.rainbow",
-    installed: typeof window !== "undefined" && typeof (window as any).rainbow !== "undefined",
-  },
-  {
-    id: "zerion",
-    name: "Zerion",
-    chain: "ethereum",
-    icon: "💸",
-    description: "DeFi wallet",
-    downloadUrl: "https://zerion.io/download",
-    thirdwebId: "io.zerion.wallet",
-    installed: typeof window !== "undefined" && typeof (window as any).zerionWallet !== "undefined",
-  },
-  {
-    id: "okx",
-    name: "OKX Wallet",
-    chain: "ethereum",
-    icon: "🏦",
-    description: "Secure multi-chain wallet",
-    downloadUrl: "https://www.okx.com/web3",
-    thirdwebId: "com.okx.wallet",
-    installed: typeof window !== "undefined" && typeof (window as any).okxwallet !== "undefined",
-  },
-  {
-    id: "binance",
-    name: "Binance Wallet",
-    chain: "ethereum",
-    icon: "💰",
-    description: "Binance ecosystem wallet",
-    downloadUrl: "https://www.binance.com/en/web3wallet",
-    thirdwebId: "com.binance",
-    installed: typeof window !== "undefined" && typeof (window as any).BinanceChain !== "undefined",
-  },
 ];
 
 export function MultiWalletConnectButton() {
@@ -152,7 +113,7 @@ export function MultiWalletConnectButton() {
   const { toast } = useToast();
   const router = useRouter();
   
-  // ThirdWeb hooks
+  // ThirdWeb v5 hooks
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const activeAccount = useActiveAccount();
@@ -222,13 +183,19 @@ export function MultiWalletConnectButton() {
       if (wallet.thirdwebId) {
         const walletInstance = createWallet(wallet.thirdwebId as any);
         
-        const account = await connect(async () => {
+        const connectedWallet = await connect(async () => {
           await walletInstance.connect({ client });
           return walletInstance;
         });
 
-        if (!account) {
+        if (!connectedWallet) {
           throw new Error(`Failed to connect to ${wallet.name}`);
+        }
+
+        // Get the account from the connected wallet
+        const account = connectedWallet.getAccount();
+        if (!account) {
+          throw new Error(`Failed to get account from ${wallet.name}`);
         }
 
         const address = account.address;
@@ -269,13 +236,12 @@ export function MultiWalletConnectButton() {
         throw new Error("Please enter a valid email address");
       }
 
-      const wallet = inAppWallet();
-
       if (!emailSent) {
-        // Send verification code using the correct method
-        await wallet.sendVerificationEmail({
-          email,
+        // Send verification code using preAuthenticate
+        await preAuthenticate({
           client,
+          strategy: "email",
+          email,
         });
         
         setEmailSent(true);
@@ -292,7 +258,8 @@ export function MultiWalletConnectButton() {
       }
 
       // Connect with verification code
-      const account = await connect(async () => {
+      const wallet = inAppWallet();
+      const connectedWallet = await connect(async () => {
         await wallet.connect({
           client,
           strategy: "email",
@@ -302,8 +269,14 @@ export function MultiWalletConnectButton() {
         return wallet;
       });
 
-      if (!account) {
+      if (!connectedWallet) {
         throw new Error("Failed to connect with email");
+      }
+
+      // Get the account from the connected wallet
+      const account = connectedWallet.getAccount();
+      if (!account) {
+        throw new Error("Failed to get account from email wallet");
       }
 
       const address = account.address;
@@ -348,7 +321,10 @@ export function MultiWalletConnectButton() {
       // Disconnect Hedera if connected
       if (hederaService) {
         try {
-          await hederaService.disconnect();
+          // Call disconnect if it exists, otherwise just clear local data
+          if (typeof hederaService.disconnect === 'function') {
+            await hederaService.disconnect();
+          }
         } catch (error) {
           console.warn("Hedera disconnect warning:", error);
         }
@@ -405,27 +381,6 @@ export function MultiWalletConnectButton() {
     setEmailSent(false);
     setConnectingWallet(null);
   };
-
-  // Check if HashPack is actually installed
-  const isHashPackInstalled = () => {
-    if (typeof window === "undefined") return false;
-    
-    // Check for HashPack extension
-    return !!(
-      (window as any).hashconnect ||
-      document.querySelector('meta[name="hashpack-installed"]') ||
-      localStorage.getItem("hashconnect") ||
-      (window as any).HashPack
-    );
-  };
-
-  // Update HashPack installation status
-  useEffect(() => {
-    const hashpackWallet = wallets.find(w => w.id === "hashpack");
-    if (hashpackWallet) {
-      hashpackWallet.installed = isHashPackInstalled();
-    }
-  }, []);
 
   return (
     <div>

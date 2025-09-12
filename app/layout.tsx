@@ -1,82 +1,32 @@
-import type React from "react";
-import type { Metadata, Viewport } from "next";
-import { ThirdwebProvider } from "@thirdweb-dev/react";
-import { Sepolia } from "@thirdweb-dev/chains";
-import { ClientWrapper } from "@/components/client-wrapper";
-import { Toaster } from "@/components/ui/toaster";
-import "./globals.css";
-import "@fontsource/open-sans/400.css";
-import "@fontsource/open-sans/500.css";
-import "@fontsource/work-sans/400.css";
-import "@fontsource/work-sans/600.css";
-import "@fontsource/work-sans/700.css";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Modred - Blockchain IP Management Platform",
-  description: "Secure, register, and manage your intellectual property on the blockchain with Modred",
-  generator: "modred.app",
-  keywords: "blockchain, intellectual property, IP management, NFT, licensing",
-  authors: [{ name: "Modred Team" }],
-  openGraph: {
-    title: "Modred - Blockchain IP Management Platform",
-    description: "Secure, register, and manage your intellectual property on the blockchain with Modred",
-    type: "website",
-    siteName: "Modred",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Modred - Blockchain IP Management Platform",
-    description: "Secure, register, and manage your intellectual property on the blockchain with Modred",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+import { ThirdwebProvider, ConnectButton } from "thirdweb/react";
+import { client } from "@/lib/thirdweb";
+import { createWallet } from "thirdweb/wallets";
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
-};
+// Pre-configure wallets if needed
+const wallets = [
+  createWallet("io.metamask"),
+  createWallet("com.coinbase.wallet"),
+  createWallet("walletConnect"),
+];
 
-const generateElements = (count: number, className: string) =>
-  Array.from({ length: count }, (_, i) => (
-    <div key={`${className}-${i}`} className={className} />
-  ));
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export function Web3Provider({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        <ThirdwebProvider
-          activeChain={Sepolia}
-          clientId={process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID}
-          supportedWallets={[
-            "io.metamask",
-            "com.trustwallet.app",
-            "walletConnect",
-            "com.coinbase.wallet",
-            "me.rainbow",
-            "io.zerion.wallet",
-            "com.okx.wallet",
-            "com.binance",
-            "inApp" // For email login
-          ]}
-        >
-          <div className="cosmic-sky">
-            {generateElements(15, "star")}
-            {generateElements(5, "comet")}
-          </div>
-          <ClientWrapper>{children}</ClientWrapper>
-          <Toaster />
-        </ThirdwebProvider>
-      </body>
-    </html>
+    <ThirdwebProvider>
+      {children}
+    </ThirdwebProvider>
+  );
+}
+
+// If you need a connect button with pre-configured wallets
+export function QuickConnectButton() {
+  return (
+    <ConnectButton
+      client={client}
+      wallets={wallets}
+      theme="dark"
+      connectModal={{ size: "wide" }}
+    />
   );
 }

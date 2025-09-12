@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet } from "lucide-react";
 import { HederaService } from "@/lib/blockchain/hedera/hedera-service";
 import { MultiWalletConnectButton } from "./multi-wallet-connect-button";
-import { useActiveAccount, useActiveWallet } from "@thirdweb-dev/react";
+import { useActiveAccount, useActiveWallet } from "thirdweb/react"; // v5 import
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthGuardProps {
