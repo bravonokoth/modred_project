@@ -1,10 +1,19 @@
 import { createThirdwebClient } from "thirdweb";
 import { defineChain } from "thirdweb/chains";
 
-// Create thirdweb client
+const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID
+
+if (!clientId) {
+  console.error("[v0] Missing NEXT_PUBLIC_THIRDWEB_CLIENT_ID environment variable")
+  throw new Error("NEXT_PUBLIC_THIRDWEB_CLIENT_ID is required. Please add it to your .env.local file.")
+}
+
+// Create thirdweb client with proper validation
 export const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
-});
+  clientId,
+})
+
+console.log(" Thirdweb client initialized successfully with clientId:", clientId.substring(0, 8) + "...")
 
 // Define supported chains
 export const supportedChains = {

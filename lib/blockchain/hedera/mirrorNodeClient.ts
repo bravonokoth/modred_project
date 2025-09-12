@@ -30,6 +30,10 @@ export class MirrorNodeClient {
       : 'https://testnet.mirrornode.hedera.com';
   }
 
+  getUrl(): string {
+    return this.url;
+  }
+
   async getAccountTokenBalances(accountId: string): Promise<MirrorNodeAccountTokenBalance[]> {
     const response = await fetch(`${this.url}/api/v1/accounts/${accountId}/tokens?limit=100`, { method: 'GET' });
     const data = await response.json();
