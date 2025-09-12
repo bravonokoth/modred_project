@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    esmExternals: 'loose'
-  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -23,25 +20,20 @@ const nextConfig = {
       }
     }
 
-    // Add rules to handle modules
-    config.module.rules.push(
-      {
-        test: /\.m?js/,
-        resolve: {
-          fullySpecified: false
-        }
-      },
-      {
-        test: /\.(js|mjs|jsx)$/,
-        resolve: {
-          fullySpecified: false
-        }
-      }
-    )
+    // Handle hashconnect module
+    config.module.rules.push({
+      test: /node_modules\/@hashgraph\/hashconnect/,
+      use: 'next-babel-loader',
+    })
+
+    config.resolve.alias = {
+      'hashconnect': require.resolve('hashconnect'),
+      ...config.resolve.alias,
+      hashconnect: require.resolve('hashconnect')
+    }
 
     return config
   },
-  transpilePackages: ['hashconnect'],
   images: {
     domains: ['images.pexels.com', 'via.placeholder.com'],
     remotePatterns: [

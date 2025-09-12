@@ -13,8 +13,9 @@ import {
   TokenType,
 } from "@hashgraph/sdk"
 import { MirrorNodeClient } from "./mirrorNodeClient"
+// Import HashConnect with type safety
+import HashConnect from 'hashconnect';
 
-type HashConnect = any
 type SessionData = any
 
 interface Transaction {
@@ -44,31 +45,54 @@ export class HederaService implements ChainService {
 
   private async initializeHashConnect() {
     try {
-      console.log("Starting HashConnect initialization...")
+      if (typeof window === "undefined") {
+        console.log("Skipping HashConnect initialization in non-browser environment");
+        return;
+      }
 
-      const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+      console.log("Starting HashConnect initialization...");
+
+      if (!this.isHashPackInstalled()) {
+        console.warn("HashPack wallet not detected");
+        return;
+      }
+
+      const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
       if (!projectId || projectId === "demo-project-id") {
-        console.error("Missing or invalid NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID")
+        console.error("Missing or invalid NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID");
         throw new Error(
           "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is required for HashConnect. Please add it to your .env.local file.",
-        )
+        );
       }
 
       const appMetadata = {
         name: process.env.NEXT_PUBLIC_APP_NAME || "Modred",
         description: process.env.NEXT_PUBLIC_APP_DESCRIPTION || "Blockchain IP Management Platform",
         icons: [process.env.NEXT_PUBLIC_APP_ICON || "/favicon.ico"],
-        url: process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : ""),
+        url: process.env.NEXT_PUBLIC_APP_URL || window.location.origin,
+      };
+
+      const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet";
+      console.log("HashConnect config:", { network, projectId: projectId.substring(0, 8) + "...", appMetadata });
+
+      try {
+        // Initialize HashConnect
+        const hashConnect = new HashConnect(false); // debug mode off
+        this.hashConnect = hashConnect;
+        
+        // Initialize with metadata
+        const initData = await hashConnect.init(appMetadata, network === "mainnet" ? "mainnet" : "testnet", false);
+        console.log("HashConnect initialized with data:", initData);
+      } catch (error) {
+        console.error("Error initializing HashConnect:", error);
+        throw error;
       }
 
-      const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet"
-      console.log("HashConnect config:", { network, projectId: projectId.substring(0, 8) + "...", appMetadata })
-
-      // Import HashConnect using require to avoid ESM issues
-      const HashConnect = require("hashconnect").HashConnect
-      const ledgerId = LedgerId.fromString(network)
-      const hashConnect = new HashConnect(ledgerId, projectId, appMetadata)
-      this.hashConnect = hashConnect
+      // Set up pairing event listener
+      this.hashConnect.pairingEvent.once((pairingData: SessionData) => {
+        console.log("Pairing event:", pairingData);
+        this.pairingData = pairingData;
+      });
 
       this.hashConnect.pairingEvent.on((newPairing: SessionData) => {
         console.log("HashConnect pairing event received:", newPairing)
@@ -176,17 +200,25 @@ export class HederaService implements ChainService {
   }
 
   private isHashPackInstalled(): boolean {
-    if (typeof window === "undefined") return false
+    if (typeof window === "undefined") {
+      return false;
+    }
 
-    // Check multiple ways HashPack might be detected
-    return !!(
-      (window as any).hashconnect ||
-      localStorage.getItem("hashconnect") ||
-      document.querySelector('meta[name="hashpack-installed"]') ||
-      (window as any).HashPack ||
-      // Check for HashPack in the window object
-      Object.keys(window).some((key) => key.toLowerCase().includes("hashpack"))
-    )
+    try {
+      // Check multiple ways HashPack might be detected
+      const hasHashPack = !!(window as any).hashpack; // Modern HashPack detection
+      const hasHashConnect = !!(window as any).hashconnect;
+      const hasLocalStorage = !!localStorage.getItem("hashconnect");
+      const hasMeta = !!document.querySelector('meta[name="hashpack-installed"]');
+      const hasLegacyHashPack = !!(window as any).HashPack;
+
+      const isInstalled = hasHashPack || hasHashConnect || hasLocalStorage || hasMeta || hasLegacyHashPack;
+      console.log("HashPack installation status:", isInstalled);
+      return isInstalled;
+    } catch (error) {
+      console.warn("Error checking for HashPack installation:", error);
+      return false;
+    }
   }
 
   async disconnect(): Promise<void> {
