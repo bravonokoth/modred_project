@@ -1,48 +1,58 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, { isServer }) => {
-    // Handle HashGraph Proto and other large files
-    config.module.rules.push({
-      test: /\.proto$/,
-      loader: 'ignore-loader'
-    });
-
-    // Exclude large Hedera packages from Babel processing
-    const babelRule = config.module.rules.find(
-      rule => rule.use && rule.use.loader === 'next-babel-loader'
-    );
-    
-    if (babelRule) {
-      babelRule.exclude = [
-        /node_modules\/@hashgraph\//,
-        /node_modules\/hashconnect\//,
-        ...(Array.isArray(babelRule.exclude) ? babelRule.exclude : [babelRule.exclude].filter(Boolean))
-      ];
+    // Optimize large module handling
+    config.watchOptions = {
+      ignored: /node_modules/,
+      aggregateTimeout: 300,
+      poll: 1000
     }
 
-    // Polyfills for node modules
+    // Add module rules
+    config.module.rules.push({
+      test: /\.m?js$/,
+      exclude: /node_modules\/(?!(@hashgraph|hashconnect)\/).*/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          cacheDirectory: true,
+          presets: ['next/babel'],
+          plugins: ['@babel/plugin-transform-runtime']
+        }
+      }
+    })
+
+    // Add fallbacks for node modules
     config.resolve.fallback = {
       ...config.resolve.fallback,
-      fs: false,
-      net: false,
-      tls: false,
       crypto: 'crypto-browserify',
       stream: 'stream-browserify',
-      url: 'url',
-      zlib: 'browserify-zlib',
+      assert: 'assert',
       http: 'stream-http',
       https: 'https-browserify',
-      assert: 'assert',
       os: 'os-browserify',
-      path: 'path-browserify',
-    };
+      url: 'url'
+    }
 
-    return config;
+    return config
   },
+  // Optimize specific packages
   transpilePackages: [
-    '@magic-ext/oauth',
-    '@thirdweb-dev/wallets'
+    'hashconnect',
+    '@hashgraph/sdk',
+    '@hashgraph/proto',
+    '@hashgraph/hedera-wallet-connect'
   ],
+  // Build optimizations
+  swcMinify: true,
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: [
+      '@hashgraph/sdk',
+      '@hashgraph/proto',
+      'hashconnect'
+    ]
+  }
 }
 
-export default nextConfig;
+export default nextConfig

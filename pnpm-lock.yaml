@@ -137,6 +137,9 @@ importers:
       cmdk:
         specifier: 1.0.4
         version: 1.0.4(@types/react-dom@19.1.9(@types/react@19.1.12))(@types/react@19.1.12)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      codebuff:
+        specifier: ^1.0.485
+        version: 1.0.485
       date-fns:
         specifier: 4.1.0
         version: 4.1.0
@@ -4706,6 +4709,13 @@ packages:
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
+
+  codebuff@1.0.485:
+    resolution: {integrity: sha512-RC+DPvi2radIVR5mQ+L53J6dg9RYR6mtmnAz6v3b3sUS6vlAX5r2huDFK5vjWh4pvphLyYzXxnc8nxjGLwqDVA==}
+    engines: {node: '>=16'}
+    cpu: [x64, arm64]
+    os: [darwin, linux, win32]
+    hasBin: true
 
   color-convert@1.9.3:
     resolution: {integrity: sha512-QfAUtd+vFdAtFQcC8CCyYt1fYWxSqAiK2cSD6zDB8N3cpsEBAvRxp9zOGg6G/SHHJYAT88/az/IuDGALsNVbGg==}
@@ -15981,6 +15991,11 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
       - '@types/react-dom'
+
+  codebuff@1.0.485:
+    dependencies:
+      commander: 12.1.0
+      tar: 6.2.1
 
   color-convert@1.9.3:
     dependencies:
