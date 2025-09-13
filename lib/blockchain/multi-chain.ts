@@ -106,7 +106,7 @@ export class MultiChainService {
   private async initializeServices() {
     try {
       // Dynamically import services to avoid server-side issues
-      const [{ EthereumService }, { SolanaService }, { WalletConnectService }, { HederaService }] = await Promise.all([
+      const [{ EthereumService }, { SolanaService }, { WalletConnectService }, { hederaService }] = await Promise.all([
         import("./ethereum/ethereum-service"),
         import("./solana/solana-service"),
         import("./walletconnect/walletconnect-service"),
@@ -116,7 +116,7 @@ export class MultiChainService {
       this.services.set("ethereum", new EthereumService())
       this.services.set("solana", new SolanaService())
       this.services.set("walletconnect", new WalletConnectService())
-      this.services.set("hedera", new HederaService())
+      this.services.set("hedera", hederaService) // Use singleton instance
     } catch (error) {
       console.error("Failed to initialize blockchain services:", error)
       // Continue without services for demo purposes

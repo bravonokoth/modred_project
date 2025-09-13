@@ -28,22 +28,44 @@ interface Transaction {
   unit?: string
 }
 
+// Singleton instance
+let hederaServiceInstance: HederaService | null = null;
+
 export class HederaService implements ChainService {
   private hashConnect: HashConnect | null = null
   private isInitialized = false
+  private isInitializing = false
   private pairingData: SessionData | null = null
-  private mirrorNodeClient: MirrorNodeClient
+  private mirrorNodeClient: MirrorNodeClient = new MirrorNodeClient("testnet")
   private client: Client | null = null
 
   constructor() {
-    if (typeof window !== "undefined") {
-      this.initializeHashConnect()
+    // Return singleton instance if it exists
+    if (hederaServiceInstance) {
+      return hederaServiceInstance;
     }
+    
+    hederaServiceInstance = this;
+    
     const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet"
     this.mirrorNodeClient = new MirrorNodeClient(network as "testnet" | "mainnet")
+    
+    if (typeof window !== "undefined") {
+      // Initialize lazily, not in constructor
+      this.initializeHashConnect().catch(error => {
+        console.warn("HashConnect initialization failed:", error)
+      })
+    }
   }
 
   private async initializeHashConnect() {
+    // Prevent multiple simultaneous initializations
+    if (this.isInitialized || this.isInitializing) {
+      return;
+    }
+    
+    this.isInitializing = true;
+    
     try {
       if (typeof window === "undefined") {
         console.log("Skipping HashConnect initialization in non-browser environment");
@@ -51,11 +73,6 @@ export class HederaService implements ChainService {
       }
 
       console.log("Starting HashConnect initialization...");
-
-      if (!this.isHashPackInstalled()) {
-        console.warn("HashPack wallet not detected");
-        return;
-      }
 
       const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
       if (!projectId || projectId === "demo-project-id") {
@@ -75,50 +92,53 @@ export class HederaService implements ChainService {
       const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet";
       console.log("HashConnect config:", { network, projectId: projectId.substring(0, 8) + "...", appMetadata });
 
-      try {
-        // Initialize HashConnect
-        const hashConnect = new HashConnect(false); // debug mode off
-        this.hashConnect = hashConnect;
-        
-        // Initialize with metadata
-        const initData = await hashConnect.init(appMetadata, network === "mainnet" ? "mainnet" : "testnet", false);
-        console.log("HashConnect initialized with data:", initData);
-      } catch (error) {
-        console.error("Error initializing HashConnect:", error);
-        throw error;
-      }
+      // Initialize HashConnect (ONLY ONCE)
+      const hashConnect = new HashConnect(false); // debug mode off
+      this.hashConnect = hashConnect;
+      
+      // Initialize with metadata - THIS IS THE ONLY INIT CALL
+      const initData = await hashConnect.init(appMetadata, network === "mainnet" ? "mainnet" : "testnet", false);
+      console.log("HashConnect initialized with data:", initData);
 
-      // Set up pairing event listener
-      this.hashConnect.pairingEvent.once((pairingData: SessionData) => {
-        console.log("Pairing event:", pairingData);
-        this.pairingData = pairingData;
-      });
-
-      this.hashConnect.pairingEvent.on((newPairing: SessionData) => {
-        console.log("HashConnect pairing event received:", newPairing)
-        this.pairingData = newPairing
-        // Initialize Hedera client after pairing
-        this.client = Client.forName(network)
-        if (newPairing.accountIds[0]) {
-          this.client.setOperator(newPairing.accountIds[0], newPairing.pairingData?.privateKey || "")
-        }
-      })
-
-      this.hashConnect.disconnectionEvent.on(() => {
-        console.log("HashConnect disconnection event received")
-        this.pairingData = null
-        this.client = null
-      })
-
-      await this.hashConnect.init()
+      // Set up event listeners ONCE
+      this.setupEventListeners();
+      
       this.isInitialized = true
       console.log("HashConnect initialized successfully")
 
       await this.checkForExistingConnection()
     } catch (error) {
       console.error("Failed to initialize HashConnect:", error)
+      this.isInitialized = false;
       throw new Error(`HashConnect initialization failed: ${(error as Error).message}`)
+    } finally {
+      this.isInitializing = false;
     }
+  }
+
+  private setupEventListeners() {
+    if (!this.hashConnect) return;
+    
+    // Use .on() for persistent listeners (not .once())
+    this.hashConnect.pairingEvent.on((pairingData: SessionData) => {
+      console.log("HashConnect pairing event received:", pairingData)
+      this.pairingData = pairingData
+      
+      // Initialize Hedera client after pairing
+      const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet"
+      this.client = Client.forName(network)
+      if (pairingData.accountIds[0]) {
+        this.client.setOperator(pairingData.accountIds[0], pairingData.pairingData?.privateKey || "")
+      }
+    })
+
+    this.hashConnect.disconnectionEvent.on(() => {
+      console.log("HashConnect disconnection event received")
+      this.pairingData = null
+      this.client = null
+      // Clear stored data on disconnection
+      this.clearStoredData()
+    })
   }
 
   private async checkForExistingConnection() {
@@ -150,70 +170,75 @@ export class HederaService implements ChainService {
   }
 
   async connect(): Promise<string> {
+    // Ensure initialized before connecting
+    if (!this.isInitialized && !this.isInitializing) {
+      await this.initializeHashConnect();
+    }
+    
+    // Wait for initialization to complete
+    while (this.isInitializing) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     if (!this.isInitialized || !this.hashConnect) {
       throw new Error("HashConnect not initialized")
     }
 
     console.log("Starting HashConnect connection...")
 
-    if (this.isHashPackInstalled()) {
-      console.log("HashPack extension detected, attempting direct connection...")
+    try {
+      // Clear any existing connections first
+      await this.hashConnect.clearConnectionsAndData()
 
-      try {
-        // Clear any existing connections first
-        await this.hashConnect.clearConnectionsAndData()
+      await this.hashConnect.openPairingModal()
 
-        await this.hashConnect.openPairingModal()
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.error("HashConnect connection timeout")
+          reject(new Error("Connection timeout - please ensure HashPack is unlocked and try again"))
+        }, 60000)
 
-        return new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            console.error("HashConnect connection timeout")
-            reject(new Error("Connection timeout - please ensure HashPack is unlocked and try again"))
-          }, 60000)
-
-          this.hashConnect!.pairingEvent.once((pairingData: SessionData) => {
-            clearTimeout(timeout)
-            console.log("HashConnect pairing successful:", pairingData)
-            if (pairingData.accountIds && pairingData.accountIds.length > 0) {
-              const accountId = pairingData.accountIds[0]
-              localStorage.setItem("hedera_account_id", accountId)
-              localStorage.setItem("hedera_topic", pairingData.topic)
-              localStorage.setItem("authToken", JSON.stringify({ address: accountId, chain: "hedera" }))
-              document.cookie = `auth-token=${accountId}; path=/; max-age=86400`
-
-              console.log("HashPack connected successfully, redirecting to dashboard...")
-              resolve(accountId)
-            } else {
-              reject(new Error("No account ID received from HashPack"))
-            }
-          })
+        // Use once for this specific connection attempt
+        this.hashConnect!.pairingEvent.once((pairingData: SessionData) => {
+          clearTimeout(timeout)
+          console.log("HashConnect pairing successful:", pairingData)
+          if (pairingData.accountIds && pairingData.accountIds.length > 0) {
+            const accountId = pairingData.accountIds[0]
+            localStorage.setItem("hedera_account_id", accountId)
+            localStorage.setItem("hedera_topic", pairingData.topic)
+            
+            console.log("HashPack connected successfully")
+            resolve(accountId)
+          } else {
+            reject(new Error("No account ID received from HashPack"))
+          }
         })
-      } catch (error) {
-        console.error("HashPack direct connection failed:", error)
-        throw new Error(`HashPack connection failed: ${(error as Error).message}`)
-      }
-    } else {
-      throw new Error(
-        "HashPack wallet extension not detected. Please install HashPack from https://www.hashpack.app/download and refresh the page.",
-      )
+      })
+    } catch (error) {
+      console.error("HashPack connection failed:", error)
+      throw new Error(`HashPack connection failed: ${(error as Error).message}`)
     }
   }
 
+  // Improved HashPack detection (soft check, doesn't block functionality)
   private isHashPackInstalled(): boolean {
     if (typeof window === "undefined") {
       return false;
     }
 
     try {
-      // Check multiple ways HashPack might be detected
-      const hasHashPack = !!(window as any).hashpack; // Modern HashPack detection
+      // Modern HashPack detection methods (v3+)
+      const hasModernHashPack = !!(window as any).hashpack?.isInstalled || !!(window as any).hashpack?.version;
       const hasHashConnect = !!(window as any).hashconnect;
-      const hasLocalStorage = !!localStorage.getItem("hashconnect");
-      const hasMeta = !!document.querySelector('meta[name="hashpack-installed"]');
       const hasLegacyHashPack = !!(window as any).HashPack;
-
-      const isInstalled = hasHashPack || hasHashConnect || hasLocalStorage || hasMeta || hasLegacyHashPack;
-      console.log("HashPack installation status:", isInstalled);
+      
+      const isInstalled = hasModernHashPack || hasHashConnect || hasLegacyHashPack;
+      console.log("HashPack installation status:", { 
+        isInstalled, 
+        hasModernHashPack, 
+        hasHashConnect, 
+        hasLegacyHashPack 
+      });
       return isInstalled;
     } catch (error) {
       console.warn("Error checking for HashPack installation:", error);
@@ -221,16 +246,39 @@ export class HederaService implements ChainService {
     }
   }
 
+  getHashPackStatus(): { installed: boolean; message: string } {
+    const installed = this.isHashPackInstalled();
+    return {
+      installed,
+      message: installed 
+        ? "HashPack extension detected" 
+        : "HashPack extension not detected - you can still connect via QR code"
+    };
+  }
+
+  private clearStoredData() {
+    localStorage.removeItem("hedera_account_id")
+    localStorage.removeItem("hedera_topic")
+    localStorage.removeItem("signed_message")
+    localStorage.removeItem("authToken")
+    // Clear the auth cookie
+    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  }
+
   async disconnect(): Promise<void> {
     if (this.hashConnect) {
-      await this.hashConnect.disconnect()
+      try {
+        // Properly disconnect and clear all data
+        await this.hashConnect.disconnect()
+        await this.hashConnect.clearConnectionsAndData()
+      } catch (error) {
+        console.warn("Error during HashConnect disconnect:", error)
+      }
+      
       this.pairingData = null
       this.client = null
-      localStorage.removeItem("hedera_account_id")
-      localStorage.removeItem("hedera_topic")
-      localStorage.removeItem("signed_message")
-      localStorage.removeItem("authToken")
-      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      this.clearStoredData()
+      
       console.log("HashPack disconnected successfully")
     }
   }
@@ -531,4 +579,15 @@ export class HederaService implements ChainService {
   getUrl(): string {
     return this.mirrorNodeClient.getUrl()
   }
+
+  // Static method to get singleton instance
+  static getInstance(): HederaService {
+    if (!hederaServiceInstance) {
+      hederaServiceInstance = new HederaService();
+    }
+    return hederaServiceInstance;
+  }
 }
+
+// Export singleton instance
+export const hederaService = HederaService.getInstance();

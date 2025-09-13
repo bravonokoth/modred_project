@@ -23,7 +23,7 @@ import { createWallet, inAppWallet } from "thirdweb/wallets"
 import { useConnect, useActiveAccount, useDisconnect, useActiveWallet } from "thirdweb/react"
 import { preAuthenticate } from "thirdweb/wallets/in-app"
 import { client } from "@/lib/thirdweb"
-import { HederaService } from "@/lib/blockchain/hedera/hedera-service"
+import { hederaService } from "@/lib/blockchain/hedera/hedera-service"
 
 // Define wallet types with proper thirdweb IDs
 interface WalletConfig {
@@ -112,7 +112,7 @@ export function MultiWalletConnectButton() {
   const [verificationCode, setVerificationCode] = useState("")
   const [showForm, setShowForm] = useState<"email" | null>(null)
   const [emailSent, setEmailSent] = useState(false)
-  const [hederaService, setHederaService] = useState<HederaService | null>(null)
+  const [hederaServiceReady, setHederaServiceReady] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -131,19 +131,7 @@ export function MultiWalletConnectButton() {
 
     // Initialize Hedera service
     if (typeof window !== "undefined") {
-      try {
-        console.log(" Initializing Hedera service...")
-        const service = new HederaService()
-        setHederaService(service)
-        console.log(" Hedera service initialized successfully")
-      } catch (error) {
-        console.error(" Failed to initialize Hedera service:", error)
-        toast({
-          title: "Hedera Service Error",
-          description: "Failed to initialize Hedera service. Please check your environment configuration.",
-          variant: "destructive",
-        })
-      }
+      setHederaServiceReady(true)
     }
   }, [activeAccount, toast])
 
@@ -159,16 +147,20 @@ export function MultiWalletConnectButton() {
       }
 
       if (wallet.id === "hashpack") {
-        if (!hederaService) {
-          throw new Error("Hedera service not initialized. Please check your environment configuration.")
+        if (!hederaServiceReady) {
+          throw new Error("Hedera service not ready. Please check your environment configuration.")
         }
 
         try {
           console.log(" Attempting to connect to HashPack...")
 
+          // Check HashPack status
+          const hashPackStatus = hederaService.getHashPackStatus()
+          console.log("HashPack status:", hashPackStatus)
+
           toast({
             title: "Connecting to HashPack",
-            description: "Please check your browser for the HashPack popup and approve the connection.",
+            description: hashPackStatus.message + ". Please check your browser for the HashPack popup and approve the connection.",
           })
 
           const accountId = await hederaService.connect()
@@ -179,20 +171,20 @@ export function MultiWalletConnectButton() {
 
           console.log("HashPack connected successfully:", accountId)
 
-          const authToken = JSON.stringify({ address: accountId, chain: "hedera" })
-          localStorage.setItem("authToken", authToken)
-          document.cookie = `auth-token=${authToken}; path=/; max-age=86400`
+          // Store connection data but don't set auth token yet - require signing first
+          localStorage.setItem("hedera_account_id", accountId)
           localStorage.setItem("walletAddress", accountId)
 
           toast({
-            title: "HashPack Connected Successfully!",
-            description: `Connected with account ${accountId}. Redirecting to dashboard...`,
+            title: "HashPack Connected!",
+            description: `Connected with account ${accountId}. Please sign a message to authenticate.`,
           })
 
           setIsConnected(true)
           setIsOpen(false)
           setShowForm(null)
 
+          // Redirect to authentication flow instead of directly to dashboard
           setTimeout(() => {
             router.push("/dashboard")
           }, 1000)
@@ -201,13 +193,7 @@ export function MultiWalletConnectButton() {
           console.error("HashPack connection error:", hederaError)
 
           const errorMessage = (hederaError as Error).message
-          if (errorMessage.includes("not detected")) {
-            toast({
-              title: "HashPack Not Found",
-              description: "Please install the HashPack browser extension and refresh the page.",
-              variant: "destructive",
-            })
-          } else if (errorMessage.includes("timeout")) {
+          if (errorMessage.includes("timeout")) {
             toast({
               title: "Connection Timeout",
               description: "Please ensure HashPack is unlocked and try again.",
@@ -372,12 +358,10 @@ export function MultiWalletConnectButton() {
       }
 
       // Disconnect Hedera if connected
-      if (hederaService) {
+      const hederaAccountId = localStorage.getItem("hedera_account_id")
+      if (hederaAccountId) {
         try {
-          // Call disconnect if it exists, otherwise just clear local data
-          if (typeof hederaService.disconnect === "function") {
-            await hederaService.disconnect()
-          }
+          await hederaService.disconnect()
         } catch (error) {
           console.warn("Hedera disconnect warning:", error)
         }

@@ -246,6 +246,9 @@ importers:
       https-browserify:
         specifier: ^1.0.0
         version: 1.0.0
+      ignore-loader:
+        specifier: ^0.1.2
+        version: 0.1.2
       node-loader:
         specifier: ^2.1.0
         version: 2.1.0(webpack@5.101.3(esbuild@0.25.9))
@@ -5677,6 +5680,9 @@ packages:
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
+
+  ignore-loader@0.1.2:
+    resolution: {integrity: sha512-yOJQEKrNwoYqrWLS4DcnzM7SEQhRKis5mB+LdKKh4cPmGYlLPR0ozRzHV5jmEk2IxptqJNQA5Cc0gw8Fj12bXA==}
 
   image-size@1.2.1:
     resolution: {integrity: sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==}
@@ -17214,6 +17220,8 @@ snapshots:
   idb-keyval@6.2.2: {}
 
   ieee754@1.2.1: {}
+
+  ignore-loader@0.1.2: {}
 
   image-size@1.2.1:
     dependencies:

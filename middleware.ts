@@ -50,7 +50,26 @@ export function middleware(request: NextRequest) {
 function checkAuthentication(request: NextRequest): boolean {
   const authToken = request.cookies.get("auth-token")?.value;
   console.log(`Middleware: auth-token present: ${!!authToken}`);
-  return !!authToken;
+  
+  if (!authToken) {
+    return false;
+  }
+  
+  try {
+    // Try to decode and validate the token
+    const decodedToken = atob(authToken);
+    const tokenData = JSON.parse(decodedToken);
+    
+    // Check if it's a signed token (for Hedera) or valid format (for others)
+    const isValidHedera = tokenData.chain === "hedera" && tokenData.signed === true;
+    const isValidOther = tokenData.chain && tokenData.address && tokenData.chain !== "hedera";
+    
+    console.log(`Middleware: token validation - isValidHedera: ${isValidHedera}, isValidOther: ${isValidOther}`);
+    return isValidHedera || isValidOther;
+  } catch (error) {
+    console.warn(`Middleware: Failed to validate auth token:`, error);
+    return false;
+  }
 }
 
 export const config = {

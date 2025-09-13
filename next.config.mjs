@@ -1,132 +1,48 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: require.resolve('crypto-browserify'),
-        stream: require.resolve('stream-browserify'),
-        url: require.resolve('url'),
-        zlib: require.resolve('browserify-zlib'),
-        http: require.resolve('stream-http'),
-        https: require.resolve('https-browserify'),
-        assert: require.resolve('assert'),
-        os: require.resolve('os-browserify'),
-        path: require.resolve('path-browserify')
-      }
-    }
-
-    // Handle hashconnect module
+    // Handle HashGraph Proto and other large files
     config.module.rules.push({
-      test: /node_modules\/@hashgraph\/hashconnect/,
-      use: 'next-babel-loader',
-    })
+      test: /\.proto$/,
+      loader: 'ignore-loader'
+    });
 
-    config.resolve.alias = {
-      'hashconnect': require.resolve('hashconnect'),
-      ...config.resolve.alias,
-      hashconnect: require.resolve('hashconnect')
-    }
-
-    return config
-  },
-  images: {
-    domains: ['images.pexels.com', 'via.placeholder.com'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'images.pexels.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'via.placeholder.com',
-        port: '',
-        pathname: '/**',
-      }
-    ],
-    unoptimized: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  webpack: (config, { isServer }) => {
-    // Handle HashConnect and Hedera wallet dependencies
-    config.externals = config.externals || [];
+    // Exclude large Hedera packages from Babel processing
+    const babelRule = config.module.rules.find(
+      rule => rule.use && rule.use.loader === 'next-babel-loader'
+    );
     
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-        stream: false,
-        url: false,
-        zlib: false,
-        http: false,
-        https: false,
-        assert: false,
-        os: false,
-        path: false,
-        buffer: false,
-        process: false,
-        util: false,
-        vm: false,
-        child_process: false
-      };
+    if (babelRule) {
+      babelRule.exclude = [
+        /node_modules\/@hashgraph\//,
+        /node_modules\/hashconnect\//,
+        ...(Array.isArray(babelRule.exclude) ? babelRule.exclude : [babelRule.exclude].filter(Boolean))
+      ];
     }
 
-    // Alternative approach: Exclude HashConnect from processing
-    config.module.rules.push({
-      test: /node_modules\/(hashconnect|@hashgraph\/hedera-wallet-connect)/,
-      use: {
-        loader: 'ignore-loader'
-      }
-    });
-
-    // If you have babel-loader installed, use this instead:
-    /*
-    config.module.rules.push({
-      test: /node_modules\/(hashconnect|@hashgraph\/hedera-wallet-connect)/,
-      use: {
-        loader: 'babel-loader',
-        options: {
-          presets: [
-            ['@babel/preset-env', {
-              targets: {
-                browsers: ['last 2 versions']
-              }
-            }]
-          ],
-          plugins: ['@babel/plugin-transform-runtime']
-        }
-      }
-    });
-    */
-
-    // Ignore critical dependency warnings
-    config.ignoreWarnings = [
-      {
-        module: /node_modules\/@hashgraph\/hedera-wallet-connect/,
-        message: /Critical dependency/,
-      },
-      {
-        module: /node_modules\/hashconnect/,
-        message: /Critical dependency/,
-      }
-    ];
+    // Polyfills for node modules
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+      crypto: 'crypto-browserify',
+      stream: 'stream-browserify',
+      url: 'url',
+      zlib: 'browserify-zlib',
+      http: 'stream-http',
+      https: 'https-browserify',
+      assert: 'assert',
+      os: 'os-browserify',
+      path: 'path-browserify',
+    };
 
     return config;
-  }
-};
+  },
+  transpilePackages: [
+    '@magic-ext/oauth',
+    '@thirdweb-dev/wallets'
+  ],
+}
 
 export default nextConfig;
